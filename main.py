@@ -1,20 +1,19 @@
-import asyncio, os, discord
+import asyncio, os, discord, datetime
 from discord.ext import commands, tasks
 from discord import app_commands
 from flask import Flask
 from threading import Thread
-import datetime
 from easy_pil import Editor, load_image_async, Font #
 
 # --- نظام الاستضافة ---
 app = Flask('')
 @app.route('/')
-def home(): return "Phoenix System Active"
+def home(): return "Phoenix Rising System Active"
 def run(): app.run(host='0.0.0.0', port=8080)
 def keep_alive():
     t = Thread(target=run); t.daemon = True; t.start()
 
-# --- الإعدادات ---
+# --- الإعدادات الثابتة ---
 WELCOME_ROOM_ID = 1347630031337160764
 CATEGORY_ID = 1497599277793284248 
 OWNER_ID = 1341796578742243338
@@ -28,34 +27,28 @@ class MyBot(commands.Bot):
         if not self.auto_refresh_task.is_running():
             self.auto_refresh_task.start()
 
-    # --- نظام الترحيب بالأفاتار المتغير ---
+    # --- نظام الترحيب بالأفاتار الموزون ---
     async def on_member_join(self, member):
         channel = self.get_channel(WELCOME_ROOM_ID)
         if channel:
-            # 1. النص المنسق المطلوب
             welcome_text = (
                 f"_'Have fun in **__PhoenixRising__**_\n"
                 f"     _'User: {member.mention}_<a:Via1:1378238620418183188>"
-            )
-
+            ) #
             try:
-                # 2. تحميل الخلفية الأساسية (welcome.png اللي رفعتها)
-                background = Editor("welcome.png")
-                
-                # 3. تحميل صورة العضو (Avatar) وجعلها دائرية
+                background = Editor("welcome.png") #
                 avatar_image = await load_image_async(member.display_avatar.url)
-                avatar = Editor(avatar_image).resize((180, 180)).circle_image()
+                # الوزنية والحجم المعتمد
+                avatar = Editor(avatar_image).resize((155, 155)).circle_image()
+                background.paste(avatar, (88, 105)) 
                 
-                # 4. وضع الأفاتار في المكان المناسب (الإحداثيات التقريبية حسب صورتك)
-                background.paste(avatar, (115, 125)) 
-                
-                # 5. حفظ الصورة وإرسالها
                 file = discord.File(fp=background.image_bytes, filename="welcome_card.png")
                 await channel.send(content=welcome_text, file=file) #
             except Exception as e:
                 print(f"Error: {e}")
                 await channel.send(welcome_text)
 
+    # --- نظام الإحصائيات التلقائي ---
     @tasks.loop(minutes=30)
     async def auto_refresh_task(self):
         for guild in self.guilds:
@@ -74,7 +67,8 @@ class MyBot(commands.Bot):
 
 bot = MyBot()
 
-# --- الأوامر الإدارية (قفل، فتح، مسح، سجن) ---
+# --- الأوامر الإدارية (Slash Commands) ---
+
 @bot.tree.command(name="مسح", description="مسح الرسائل")
 @app_commands.checks.has_permissions(manage_messages=True)
 async def clear(interaction: discord.Interaction, العدد: int):
@@ -99,6 +93,31 @@ async def timeout(interaction: discord.Interaction, العضو: discord.Member, 
     duration = datetime.timedelta(minutes=الدقائق)
     await العضو.timeout(duration)
     await interaction.response.send_message(f"⏳ تم سجن {العضو.mention} لـ {الدقائق} دقيقة")
+
+@bot.tree.command(name="حظر", description="حظر عضو من السيرفر")
+@app_commands.checks.has_permissions(ban_members=True)
+async def ban(interaction: discord.Interaction, العضو: discord.Member, السبب: str = "غير محدد"):
+    await العضو.ban(reason=السبب)
+    await interaction.response.send_message(f"🚫 تم حظر {العضو.name} | السبب: {السبب}")
+
+@bot.tree.command(name="طرد", description="طرد عضو من السيرفر")
+@app_commands.checks.has_permissions(kick_members=True)
+async def kick(interaction: discord.Interaction, العضو: discord.Member, السبب: str = "غير محدد"):
+    await العضو.kick(reason=السبب)
+    await interaction.response.send_message(f"👞 تم طرد {العضو.name} | السبب: {السبب}")
+
+@bot.tree.command(name="فك_حظر", description="إلغاء حظر عضو باستخدام ID")
+@app_commands.checks.has_permissions(ban_members=True)
+async def unban(interaction: discord.Interaction, العضو_ايدي: str):
+    user = await bot.fetch_user(العضو_ايدي)
+    await interaction.guild.unban(user)
+    await interaction.response.send_message(f"✅ تم فك الحظر عن {user.name}")
+
+@bot.tree.command(name="الحالة", description="تغيير حالة البوت")
+async def change_status(interaction: discord.Interaction, النص: str):
+    if interaction.user.id == OWNER_ID:
+        await bot.change_presence(activity=discord.Game(name=النص))
+        await interaction.response.send_message(f"✅ تم تغيير الحالة إلى: {النص}", ephemeral=True)
 
 if __name__ == '__main__':
     keep_alive()
