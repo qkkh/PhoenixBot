@@ -5,15 +5,15 @@ from flask import Flask
 from threading import Thread
 import datetime
 
-# --- نظام الاستضافة ---
+# --- نظام الاستضافة لضمان العمل 24 ساعة ---
 app = Flask('')
 @app.route('/')
-def home(): return "Phoenix Advanced System Active"
+def home(): return "Phoenix Rising System is Online"
 def run(): app.run(host='0.0.0.0', port=8080)
 def keep_alive():
     t = Thread(target=run); t.daemon = True; t.start()
 
-# --- الإعدادات الثابتة ---
+# --- الإعدادات الثابتة الخاصة بسيرفرك ---
 PHOENIX_COLOR = 0x00aaff 
 CATEGORY_ID = 1497599277793284248 
 WELCOME_ROOM_ID = 1347630031337160764
@@ -21,17 +21,35 @@ OWNER_ID = 1341796578742243338
 
 class MyBot(commands.Bot):
     def __init__(self):
+        # تفعيل Intents لضمان عمل الترحيب التلقائي
         super().__init__(command_prefix="!", intents=discord.Intents.all())
     
     async def setup_hook(self):
-        # مزامنة الأوامر لتظهر في قائمة السلاش باللغة العربية
+        # مزامنة أوامر السلاش (/) لتظهر في قائمة الأوامر بالعربي
         await self.tree.sync()
         if not self.auto_refresh_task.is_running():
             self.auto_refresh_task.start()
 
     async def on_ready(self):
-        print(f"Phoenix Slash System is Live and Ready")
+        print(f"Logged in as {self.user.name}")
+        print("نظام الترحيب التلقائي والإحصائيات والأوامر جاهز")
 
+    # --- 1. نظام الترحيب التلقائي (on_member_join) ---
+    async def on_member_join(self, member):
+        channel = self.get_channel(WELCOME_ROOM_ID)
+        if channel:
+            embed = discord.Embed(
+                title="Welcome to Phoenix Rising",
+                description=f"نورت السيرفر يا بطل {member.mention}\nنتمنى لك وقتاً ممتعاً معنا!",
+                color=PHOENIX_COLOR,
+                timestamp=datetime.datetime.utcnow()
+            )
+            embed.set_image(url="https://i.postimg.cc/85M8qK2y/welcome.png") #
+            embed.set_thumbnail(url=member.display_avatar.url)
+            embed.set_footer(text=f"العضو رقم: {member.guild.member_count}")
+            await channel.send(content=f"Welcome {member.mention}", embed=embed)
+
+    # --- 2. نظام تحديث الإحصائيات (تلقائي كل 30 دقيقة) ---
     @tasks.loop(minutes=30)
     async def auto_refresh_task(self):
         for guild in self.guilds:
@@ -40,29 +58,24 @@ class MyBot(commands.Bot):
     async def refresh_stats(self, guild):
         category = guild.get_channel(CATEGORY_ID)
         if category:
+            # حذف القنوات الصوتية القديمة
             for ch in category.voice_channels: 
                 try: await ch.delete()
                 except: pass
+            # حساب الأرقام الفعلية
             total = guild.member_count
             online = len([m for m in guild.members if m.status != discord.Status.offline])
+            # إنشاء القنوات الجديدة
             await guild.create_voice_channel(name=f"Members: {total}", category=category)
             await guild.create_voice_channel(name=f"Online: {online}", category=category)
 
-    async def on_member_join(self, member):
-        channel = member.guild.get_channel(WELCOME_ROOM_ID)
-        if channel:
-            embed = discord.Embed(description=f"Welcome , {member.mention} Enjoy your stay in Phoenix Rising", color=PHOENIX_COLOR)
-            embed.set_image(url="https://i.postimg.cc/85M8qK2y/welcome.png") #
-            await channel.send(content=f"{member.mention}", embed=embed)
-
 bot = MyBot()
 
-# --- حزمة الأوامر المعربة بالكامل ---
+# --- 3. حزمة الأوامر الإدارية (Slash Commands) بالعربي ---
 
-@bot.tree.command(name="حالة_السيرفر", description="تحديث إحصائيات السيرفر (الرومات الصوتية) فوراً")
+@bot.tree.command(name="حالة_السيرفر", description="تحديث الإحصائيات فوراً")
 async def manual_refresh(interaction: discord.Interaction):
-    if interaction.user.id != OWNER_ID:
-        return await interaction.response.send_message("❌ هذا الأمر للزعيم فقط", ephemeral=True)
+    if interaction.user.id != OWNER_ID: return
     await interaction.response.defer(ephemeral=True)
     await bot.refresh_stats(interaction.guild)
     await interaction.followup.send("Just stay calm - تم تحديث الإحصائيات", ephemeral=True)
@@ -71,67 +84,44 @@ async def manual_refresh(interaction: discord.Interaction):
 @app_commands.checks.has_permissions(manage_channels=True)
 async def lock(interaction: discord.Interaction):
     await interaction.channel.set_permissions(interaction.guild.default_role, send_messages=False)
-    await interaction.response.send_message("🔒 تم قفل القناة بنجاح")
+    await interaction.response.send_message("🔒 تم قفل القناة")
 
-@bot.tree.command(name="فتح_القناة", description="فتح الشات والسماح للأعضاء بالكتابة")
+@bot.tree.command(name="فتح_القناة", description="فتح الشات والسماح بالكتابة")
 @app_commands.checks.has_permissions(manage_channels=True)
 async def unlock(interaction: discord.Interaction):
     await interaction.channel.set_permissions(interaction.guild.default_role, send_messages=True)
-    await interaction.response.send_message("🔓 تم فتح القناة بنجاح")
+    await interaction.response.send_message("🔓 تم فتح القناة")
 
-@bot.tree.command(name="طرد", description="طرد عضو مخالف من السيرفر")
+@bot.tree.command(name="طرد", description="طرد عضو من السيرفر")
 @app_commands.checks.has_permissions(kick_members=True)
 async def kick(interaction: discord.Interaction, العضو: discord.Member, السبب: str = "غير محدد"):
     await العضو.kick(reason=السبب)
-    await interaction.response.send_message(f"👞 تم طرد {العضو.mention} | السبب: {السبب}")
+    await interaction.response.send_message(f"👞 تم طرد {العضو.mention}")
 
-@bot.tree.command(name="حظر", description="حظر عضو نهائياً من السيرفر")
+@bot.tree.command(name="حظر", description="حظر عضو نهائياً")
 @app_commands.checks.has_permissions(ban_members=True)
 async def ban(interaction: discord.Interaction, العضو: discord.Member, السبب: str = "غير محدد"):
     await العضو.ban(reason=السبب)
-    await interaction.response.send_message(f"🚫 تم حظر {العضو.mention} | السبب: {السبب}")
+    await interaction.response.send_message(f"🚫 تم حظر {العضو.mention}")
 
-@bot.tree.command(name="مسح", description="تنظيف الشات من عدد معين من الرسائل")
+@bot.tree.command(name="مسح", description="مسح عدد معين من الرسائل")
 @app_commands.checks.has_permissions(manage_messages=True)
 async def clear(interaction: discord.Interaction, العدد: int):
     await interaction.channel.purge(limit=العدد)
-    await interaction.response.send_message(f"🧹 تم مسح {العدد} رسالة بنجاح", ephemeral=True)
+    await interaction.response.send_message(f"🧹 تم مسح {العدد} رسالة", ephemeral=True)
 
-@bot.tree.command(name="الحالة", description="تغيير النشاط الذي يظهر تحت اسم البوت")
-async def change_status(interaction: discord.Interaction, النص: str):
-    if interaction.user.id != OWNER_ID:
-        return await interaction.response.send_message("❌ لا تملك صلاحية تغيير الحالة", ephemeral=True)
-    await bot.change_presence(activity=discord.Game(name=النص))
-    await interaction.response.send_message(f"✅ تم تغيير حالة البوت إلى: {النص}", ephemeral=True)
-
-@bot.tree.command(name="سجن", description="إعطاء ميوت (Timeout) مؤقت لعضو")
+@bot.tree.command(name="سجن", description="إعطاء ميوت (Timeout) مؤقت للعضو")
 @app_commands.checks.has_permissions(moderate_members=True)
-async def timeout(interaction: discord.Interaction, العضو: discord.Member, الدقائق: int, السبب: str = "غير محدد"):
+async def timeout(interaction: discord.Interaction, العضو: discord.Member, الدقائق: int):
     duration = datetime.timedelta(minutes=الدقائق)
-    await العضو.timeout(duration, reason=السبب)
-    await interaction.response.send_message(f"⏳ تم سجن {العضو.mention} لمدة {الدقائق} دقيقة | السبب: {السبب}")
+    await العضو.timeout(duration)
+    await interaction.response.send_message(f"⏳ تم سجن {العضو.mention} لمدة {الدقائق} دقيقة")
 
-@bot.tree.command(name="بطيئ", description="تفعيل وضع التباطؤ (Slowmode) في القناة")
-@app_commands.checks.has_permissions(manage_channels=True)
-async def slowmode(interaction: discord.Interaction, الثواني: int):
-    await interaction.channel.edit(slowmode_delay=الثواني)
-    await interaction.response.send_message(f"🐢 تم تفعيل الوضع البطيء: {الثواني} ثانية")
-
-@bot.tree.command(name="تحذير", description="إرسال تحذير رسمي لعضو")
-@app_commands.checks.has_permissions(manage_messages=True)
-async def warn(interaction: discord.Interaction, العضو: discord.Member, السبب: str):
-    emb = discord.Embed(title="⚠️ تحذير رسمي", description=f"تم تحذيرك في سيرفر Phoenix Rising\n**السبب:** {السبب}", color=0xff0000)
-    try:
-        await العضو.send(embed=emb)
-        await interaction.response.send_message(f"✅ تم إرسال التحذير لـ {العضو.mention}")
-    except:
-        await interaction.response.send_message(f"⚠️ تم التحذير شفهياً (خاص العضو مغلق)")
-
-@bot.tree.command(name="اسم_مستعار", description="تغيير لقب عضو في السيرفر")
-@app_commands.checks.has_permissions(manage_nicknames=True)
-async def nickname(interaction: discord.Interaction, العضو: discord.Member, الاسم: str):
-    await العضو.edit(nick=الاسم)
-    await interaction.response.send_message(f"📝 تم تغيير لقب العضو إلى: {الاسم}")
+@bot.tree.command(name="الحالة", description="تغيير حالة البوت (Status)")
+async def change_status(interaction: discord.Interaction, النص: str):
+    if interaction.user.id == OWNER_ID:
+        await bot.change_presence(activity=discord.Game(name=النص))
+        await interaction.response.send_message(f"✅ تم تغيير الحالة إلى: {النص}", ephemeral=True)
 
 if __name__ == '__main__':
     keep_alive()
