@@ -3,6 +3,7 @@ from discord.ext import commands, tasks
 from discord import app_commands
 from flask import Flask
 from threading import Thread
+import datetime
 
 # --- نظام الاستضافة ---
 app = Flask('')
@@ -23,7 +24,7 @@ class MyBot(commands.Bot):
         super().__init__(command_prefix="!", intents=discord.Intents.all())
     
     async def setup_hook(self):
-        # مزامنة الأوامر لتظهر في قائمة السلاش
+        # مزامنة الأوامر لتظهر في قائمة السلاش باللغة العربية
         await self.tree.sync()
         if not self.auto_refresh_task.is_running():
             self.auto_refresh_task.start()
@@ -44,10 +45,8 @@ class MyBot(commands.Bot):
                 except: pass
             total = guild.member_count
             online = len([m for m in guild.members if m.status != discord.Status.offline])
-            bots = len([m for m in guild.members if m.bot])
             await guild.create_voice_channel(name=f"Members: {total}", category=category)
             await guild.create_voice_channel(name=f"Online: {online}", category=category)
-            await guild.create_voice_channel(name=f"Bots: {bots}", category=category)
 
     async def on_member_join(self, member):
         channel = member.guild.get_channel(WELCOME_ROOM_ID)
@@ -58,7 +57,7 @@ class MyBot(commands.Bot):
 
 bot = MyBot()
 
-# --- حزمة الأوامر الإدارية (Slash Commands) ---
+# --- حزمة الأوامر المعربة بالكامل ---
 
 @bot.tree.command(name="حالة_السيرفر", description="تحديث إحصائيات السيرفر (الرومات الصوتية) فوراً")
 async def manual_refresh(interaction: discord.Interaction):
@@ -105,19 +104,34 @@ async def change_status(interaction: discord.Interaction, النص: str):
     await bot.change_presence(activity=discord.Game(name=النص))
     await interaction.response.send_message(f"✅ تم تغيير حالة البوت إلى: {النص}", ephemeral=True)
 
-@bot.tree.command(name="سجن", description="إعطاء ميوت (Timeout) لعضو")
+@bot.tree.command(name="سجن", description="إعطاء ميوت (Timeout) مؤقت لعضو")
 @app_commands.checks.has_permissions(moderate_members=True)
 async def timeout(interaction: discord.Interaction, العضو: discord.Member, الدقائق: int, السبب: str = "غير محدد"):
-    duration = asyncio.tasks.datetime.timedelta(minutes=الدقائق)
+    duration = datetime.timedelta(minutes=الدقائق)
     await العضو.timeout(duration, reason=السبب)
     await interaction.response.send_message(f"⏳ تم سجن {العضو.mention} لمدة {الدقائق} دقيقة | السبب: {السبب}")
 
-@bot.tree.command(name="فك_الحظر", description="إزالة الحظر عن عضو (استخدم الـ ID)")
-@app_commands.checks.has_permissions(ban_members=True)
-async def unban(interaction: discord.Interaction, ايدي_العضو: str):
-    user = await bot.fetch_user(int(ايدي_العضو))
-    await interaction.guild.unban(user)
-    await interaction.response.send_message(f"🔓 تم فك الحظر عن {user.name}")
+@bot.tree.command(name="بطيئ", description="تفعيل وضع التباطؤ (Slowmode) في القناة")
+@app_commands.checks.has_permissions(manage_channels=True)
+async def slowmode(interaction: discord.Interaction, الثواني: int):
+    await interaction.channel.edit(slowmode_delay=الثواني)
+    await interaction.response.send_message(f"🐢 تم تفعيل الوضع البطيء: {الثواني} ثانية")
+
+@bot.tree.command(name="تحذير", description="إرسال تحذير رسمي لعضو")
+@app_commands.checks.has_permissions(manage_messages=True)
+async def warn(interaction: discord.Interaction, العضو: discord.Member, السبب: str):
+    emb = discord.Embed(title="⚠️ تحذير رسمي", description=f"تم تحذيرك في سيرفر Phoenix Rising\n**السبب:** {السبب}", color=0xff0000)
+    try:
+        await العضو.send(embed=emb)
+        await interaction.response.send_message(f"✅ تم إرسال التحذير لـ {العضو.mention}")
+    except:
+        await interaction.response.send_message(f"⚠️ تم التحذير شفهياً (خاص العضو مغلق)")
+
+@bot.tree.command(name="اسم_مستعار", description="تغيير لقب عضو في السيرفر")
+@app_commands.checks.has_permissions(manage_nicknames=True)
+async def nickname(interaction: discord.Interaction, العضو: discord.Member, الاسم: str):
+    await العضو.edit(nick=الاسم)
+    await interaction.response.send_message(f"📝 تم تغيير لقب العضو إلى: {الاسم}")
 
 if __name__ == '__main__':
     keep_alive()
