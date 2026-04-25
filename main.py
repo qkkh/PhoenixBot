@@ -1,12 +1,12 @@
-import asyncio, os, re, discord, requests
-from discord.ext import commands, tasks
+import asyncio, os, discord
+from discord.ext import commands
 from flask import Flask
 from threading import Thread
 
 # --- نظام الاستضافة للبقاء حياً 24 ساعة ---
 app = Flask('')
 @app.route('/')
-def home(): return "Phoenix Panel is Active"
+def home(): return "Phoenix Elite is Active"
 def run(): app.run(host='0.0.0.0', port=8080)
 def keep_alive():
     t = Thread(target=run); t.daemon = True; t.start()
@@ -15,66 +15,54 @@ def keep_alive():
 OWNER_ID = 1341796578742243338 
 PHOENIX_COLOR = 0x00aaff 
 
-# --- إعدادات قنوات الإحصائيات (ضع الـ ID حق القناة الصوتية هنا) ---
-# ستقوم هذه الميزة بتحديث اسم القناة ليعرض عدد الأعضاء تلقائياً
-STATS_CHANNEL_ID = 123456789012345678 
+# رومات الصور
+GIRLS_ROOM = 1378251900348141589
+BOYS_ROOM = 1378251863098392596
+ANIME_ROOM = 1378251920237395998
+WELCOME_ROOM_ID = 1347630031337160764 # روم الترحيب الجديد
 
-# --- واجهات التفاعل (نوافذ إدخال البيانات) ---
+class ImageModal(discord.ui.Modal):
+    def __init__(self, room_id, title_name):
+        super().__init__(title=f"نشر في قسم {title_name}")
+        self.room_id = room_id
+        self.img_url = discord.ui.TextInput(label="رابط الصورة (Avatar/Banner)", placeholder="ضع الرابط هنا...", required=True)
 
-class YTPostModal(discord.ui.Modal, title='نشر فيديو يوتيوب 🎬'):
-    link = discord.ui.TextInput(label="رابط الفيديو", placeholder="ضع رابط المقطع هنا...", required=True)
     async def on_submit(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
-        try:
-            r = requests.get(self.link.value).text
-            ch_name = re.search(r'"author":"(.*?)"', r).group(1)
-        except: ch_name = "قناتنا"
-        
-        # روم اليوتيوب الأساسي في سيرفرك
-        channel = interaction.guild.get_channel(924316521050820609) 
+        channel = interaction.guild.get_channel(self.room_id)
         if channel:
-            msg = f"**انتباه يا أبطال الفينيق! المبدع {ch_name} نزل مقطع جديد ورهيب، شاهدوا المقطع الآن:**"
-            await channel.send(content=f"@everyone\n{msg}\n{self.link.value}")
-            await interaction.followup.send("✅ تم النشر بنجاح يا زعيم!", ephemeral=True)
-
-class AnnounceModal(discord.ui.Modal, title='إرسال إعلان عام 📢'):
-    text = discord.ui.TextInput(label="محتوى الإعلان", style=discord.TextStyle.paragraph, placeholder="اكتب رسالتك هنا...", required=True)
-    async def on_submit(self, interaction: discord.Interaction):
-        embed = discord.Embed(title="📢 تنبيه من Phoenix Rising", description=self.text.value, color=PHOENIX_COLOR)
-        embed.set_footer(text="نظام الإشعارات الذكي")
-        await interaction.channel.send(content="@everyone", embed=embed)
-        await interaction.response.send_message("✅ تم إرسال الإعلان للجميع.", ephemeral=True)
-
-# --- لوحة التحكم (الأزرار فقط) ---
+            embed = discord.Embed(color=PHOENIX_COLOR)
+            embed.set_image(url=self.img_url.value)
+            await channel.send(embed=embed)
+            await interaction.response.send_message(f"✅ تم النشر في قسم {channel.name}", ephemeral=True)
 
 class PhoenixDashboard(discord.ui.View):
     def __init__(self, bot):
         super().__init__(timeout=None)
         self.bot = bot
     
-    @discord.ui.button(label="نشر يوتيوب", style=discord.ButtonStyle.primary, emoji="🎥")
-    async def yt_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+    @discord.ui.button(label="PHOENIX status", style=discord.ButtonStyle.secondary)
+    async def status_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user.id != OWNER_ID: return
-        await interaction.response.send_modal(YTPostModal())
+        guild = interaction.guild
+        embed = discord.Embed(title="PHOENIX status", color=PHOENIX_COLOR)
+        embed.add_field(name="الأعضاء", value=str(guild.member_count), inline=True)
+        embed.add_field(name="المتصلين", value=str(len([m for m in guild.members if m.status != discord.Status.offline])), inline=True)
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    @discord.ui.button(label="إرسال إعلان", style=discord.ButtonStyle.success, emoji="📢")
-    async def ann_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+    @discord.ui.button(label="افتار بنات", style=discord.ButtonStyle.primary)
+    async def girls_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user.id != OWNER_ID: return
-        await interaction.response.send_modal(AnnounceModal())
+        await interaction.response.send_modal(ImageModal(GIRLS_ROOM, "البنات"))
 
-    @discord.ui.button(label="قفل الروم", style=discord.ButtonStyle.danger, emoji="🔒")
-    async def lock_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+    @discord.ui.button(label="افتار شباب", style=discord.ButtonStyle.primary)
+    async def boys_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user.id != OWNER_ID: return
-        await interaction.channel.set_permissions(interaction.guild.default_role, send_messages=False)
-        await interaction.response.send_message("🔒 تم قفل الروم بنجاح.", ephemeral=True)
+        await interaction.response.send_modal(ImageModal(BOYS_ROOM, "الشباب"))
 
-    @discord.ui.button(label="فتح الروم", style=discord.ButtonStyle.secondary, emoji="🔓")
-    async def unlock_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+    @discord.ui.button(label="افتار انمي", style=discord.ButtonStyle.primary)
+    async def anime_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user.id != OWNER_ID: return
-        await interaction.channel.set_permissions(interaction.guild.default_role, send_messages=True)
-        await interaction.response.send_message("🔓 تم فتح الروم للجميع.", ephemeral=True)
-
-# --- البوت الأساسي ---
+        await interaction.response.send_modal(ImageModal(ANIME_ROOM, "الانمي"))
 
 class MyBot(commands.Bot):
     def __init__(self):
@@ -82,26 +70,28 @@ class MyBot(commands.Bot):
     
     async def on_ready(self):
         await self.tree.sync()
-        self.update_stats.start() # بدء تحديث عدد الأعضاء في القناة الصوتية
-        print(f"Phoenix Advanced Panel is Online")
+        print(f"Phoenix Elite Panel is Online")
 
-    # مهمة لتحديث اسم القناة الصوتية بعدد الأعضاء كل 5 دقائق
-    @tasks.loop(minutes=5)
-    async def update_stats(self):
-        channel = self.get_channel(STATS_CHANNEL_ID)
-        if channel:
-            try:
-                await channel.edit(name=f"📊 الأعضاء: {channel.guild.member_count}")
-            except Exception as e:
-                print(f"Error updating stats channel: {e}")
+    # نظام الترحيب المطور
+    async def on_member_join(self, member):
+        welcome_channel = member.guild.get_channel(WELCOME_ROOM_ID)
+        if welcome_channel:
+            embed = discord.Embed(
+                description=f"Welcome , {member.mention} Enjoy your stay in Phoenix Rising", 
+                color=PHOENIX_COLOR
+            )
+            # تم استخدام رابط مباشر افتراضي، تأكد من استبداله برابط صورتك المرفوعة
+            embed.set_image(url="https://i.postimg.cc/85M8qK2y/welcome.png") 
+            await welcome_channel.send(content=f"{member.mention}", embed=embed)
 
 bot = MyBot()
 
 @bot.command(name="79")
 async def panel(ctx):
     if ctx.author.id == OWNER_ID:
+        # تصميم البانل الجديد
         emb = discord.Embed(
-            title="🎮 مركز عمليات PHOENIX RISING", 
+            title="PHOENIX RISING", 
             description="مرحباً بك يا زعيم الفينيق. هذه هي لوحة التحكم الخاصة بك، مصممة لتنفيذ أوامرك بضغطة زر واحدة.", 
             color=PHOENIX_COLOR
         )
