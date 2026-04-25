@@ -3,9 +3,9 @@ from discord.ext import commands, tasks
 from discord import app_commands
 from flask import Flask
 from threading import Thread
-from easy_pil import Editor, load_image_async, Font #
+from easy_pil import Editor, load_image_async #
 
-# --- نظام الاستضافة ---
+# --- نظام الاستضافة (لضمان عمل البوت 24 ساعة) ---
 app = Flask('')
 @app.route('/')
 def home(): return "Phoenix Rising System Active"
@@ -20,14 +20,14 @@ OWNER_ID = 1341796578742243338
 
 class MyBot(commands.Bot):
     def __init__(self):
-        super().__init__(command_prefix="!", intents=discord.Intents.all()) #
+        super().__init__(command_prefix="!", intents=discord.Intents.all())
     
     async def setup_hook(self):
         await self.tree.sync()
         if not self.auto_refresh_task.is_running():
             self.auto_refresh_task.start()
 
-    # --- نظام الترحيب بالأفاتار الموزون ---
+    # --- نظام الترحيب بالأفاتار الموزون بدقة ---
     async def on_member_join(self, member):
         channel = self.get_channel(WELCOME_ROOM_ID)
         if channel:
@@ -36,19 +36,23 @@ class MyBot(commands.Bot):
                 f"     _'User: {member.mention}_<a:Via1:1378238620418183188>"
             ) #
             try:
-                background = Editor("welcome.png") #
+                # تحميل الخلفية الأصلية المرفوعة
+                background = Editor("welcome.png")
                 avatar_image = await load_image_async(member.display_avatar.url)
-                # الوزنية والحجم المعتمد
+                
+                # تصغير الحجم ليتناسب مع الدائرة بدقة
                 avatar = Editor(avatar_image).resize((155, 155)).circle_image()
+                
+                # الإحداثيات الموزونة للوسط بالضبط
                 background.paste(avatar, (88, 105)) 
                 
                 file = discord.File(fp=background.image_bytes, filename="welcome_card.png")
-                await channel.send(content=welcome_text, file=file) #
+                await channel.send(content=welcome_text, file=file)
             except Exception as e:
-                print(f"Error: {e}")
+                print(f"Error drawing image: {e}")
                 await channel.send(welcome_text)
 
-    # --- نظام الإحصائيات التلقائي ---
+    # --- تحديث الإحصائيات التلقائي ---
     @tasks.loop(minutes=30)
     async def auto_refresh_task(self):
         for guild in self.guilds:
@@ -87,31 +91,31 @@ async def unlock(interaction: discord.Interaction):
     await interaction.channel.set_permissions(interaction.guild.default_role, send_messages=True)
     await interaction.response.send_message("🔓 تم فتح القناة")
 
-@bot.tree.command(name="سجن", description="ميوت مؤقت")
+@bot.tree.command(name="سجن", description="ميوت مؤقت (تايم أوت)")
 @app_commands.checks.has_permissions(moderate_members=True)
 async def timeout(interaction: discord.Interaction, العضو: discord.Member, الدقائق: int):
     duration = datetime.timedelta(minutes=الدقائق)
     await العضو.timeout(duration)
     await interaction.response.send_message(f"⏳ تم سجن {العضو.mention} لـ {الدقائق} دقيقة")
 
-@bot.tree.command(name="حظر", description="حظر عضو من السيرفر")
+@bot.tree.command(name="حظر", description="حظر عضو نهائياً")
 @app_commands.checks.has_permissions(ban_members=True)
 async def ban(interaction: discord.Interaction, العضو: discord.Member, السبب: str = "غير محدد"):
     await العضو.ban(reason=السبب)
-    await interaction.response.send_message(f"🚫 تم حظر {العضو.name} | السبب: {السبب}")
+    await interaction.response.send_message(f"🚫 تم حظر {العضو.name}")
 
 @bot.tree.command(name="طرد", description="طرد عضو من السيرفر")
 @app_commands.checks.has_permissions(kick_members=True)
 async def kick(interaction: discord.Interaction, العضو: discord.Member, السبب: str = "غير محدد"):
     await العضو.kick(reason=السبب)
-    await interaction.response.send_message(f"👞 تم طرد {العضو.name} | السبب: {السبب}")
+    await interaction.response.send_message(f"👞 تم طرد {العضو.name}")
 
-@bot.tree.command(name="فك_حظر", description="إلغاء حظر عضو باستخدام ID")
+@bot.tree.command(name="فك_حظر", description="إلغاء الحظر باستخدام ID")
 @app_commands.checks.has_permissions(ban_members=True)
-async def unban(interaction: discord.Interaction, العضو_ايدي: str):
-    user = await bot.fetch_user(العضو_ايدي)
+async def unban(interaction: discord.Interaction, ايدي_العضو: str):
+    user = await bot.fetch_user(ايدي_العضو)
     await interaction.guild.unban(user)
-    await interaction.response.send_message(f"✅ تم فك الحظر عن {user.name}")
+    await interaction.response.send_message(f"✅ تم فك حظر {user.name}")
 
 @bot.tree.command(name="الحالة", description="تغيير حالة البوت")
 async def change_status(interaction: discord.Interaction, النص: str):
