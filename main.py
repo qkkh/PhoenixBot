@@ -41,10 +41,10 @@ class MyBot(commands.Bot):
                 avatar_image = await load_image_async(member.display_avatar.url)
                 
                 # تصغير الحجم ليتناسب مع الدائرة بدقة
-                avatar = Editor(avatar_image).resize((165, 160)).circle_image()
+                avatar = Editor(avatar_image).resize((165, 165)).circle_image()
                 
                 # الإحداثيات الموزونة للوسط بالضبط
-                background.paste(avatar, (58, 76)) 
+                background.paste(avatar, (56, 76)) 
                 
                 file = discord.File(fp=background.image_bytes, filename="welcome_card.png")
                 await channel.send(content=welcome_text, file=file)
