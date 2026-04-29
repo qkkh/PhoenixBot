@@ -18,6 +18,23 @@ WELCOME_ROOM_ID = 1347630031337160764
 CATEGORY_ID = 1497599277793284248 
 OWNER_ID = 1341796578742243338
 
+# --- نظام الأزرار (للتحميل) ---
+class AvatarDownload(discord.ui.View):
+    def __init__(self, av_url, bn_url):
+        super().__init__(timeout=None)
+        self.av_url = av_url
+        self.bn_url = bn_url
+    @discord.ui.button(label="Download", style=discord.ButtonStyle.gray, emoji="📥")
+    async def dl(self, interaction: discord.Interaction, button: discord.ui.Button):
+        embeds = []
+        if self.av_url:
+            e1 = discord.Embed(title="👤 Avatar").set_image(url=self.av_url)
+            embeds.append(e1)
+        if self.bn_url:
+            e2 = discord.Embed(title="🖼️ Banner").set_image(url=self.bn_url)
+            embeds.append(e2)
+        await interaction.response.send_message(embeds=embeds, ephemeral=True)
+
 class MyBot(commands.Bot):
     def __init__(self):
         super().__init__(command_prefix="!", intents=discord.Intents.all())
@@ -70,6 +87,16 @@ class MyBot(commands.Bot):
             await guild.create_voice_channel(name=f"Online: {online}", category=category)
 
 bot = MyBot()
+
+# --- أمر النشر للأفاتارات (الإضافة الجديدة) ---
+@bot.tree.command(name="نشر", description="نشر افتار وبنر")
+async def post(interaction: discord.Interaction, الافتار: str, البنر: str):
+    if interaction.user.id == OWNER_ID or interaction.user.guild_permissions.manage_messages:
+        emb = discord.Embed(color=0x000000)
+        emb.set_image(url=البنر)
+        emb.set_thumbnail(url=الافتار)
+        await interaction.channel.send(embed=emb, view=AvatarDownload(الافتار, البنر))
+        await interaction.response.send_message("Done", ephemeral=True)
 
 # --- الأوامر الإدارية (Slash Commands) ---
 
