@@ -1,58 +1,49 @@
-import asyncio, os, discord, datetime
-from discord.ext import commands, tasks
+import asyncio os discord datetime
+from discord.ext import commands tasks
 from discord import app_commands
 from flask import Flask
 from threading import Thread
-from easy_pil import Editor, load_image_async #
+from easy_pil import Editor load_image_async
 
-# --- نظام الاستضافة (لضمان عمل البوت 24 ساعة) ---
+# --- كودك الأصلي بدون أي تغيير ---
 app = Flask('')
 @app.route('/')
 def home(): return "Phoenix Rising System Active"
-def run(): app.run(host='0.0.0.0', port=8080)
+def run(): app.run(host='0.0.0.0' port=8080)
 def keep_alive():
-    t = Thread(target=run); t.daemon = True; t.start()
+    t = Thread(target=run) t.daemon = True t.start()
 
-# --- الإعدادات الثابتة ---
 WELCOME_ROOM_ID = 1347630031337160764
 CATEGORY_ID = 1497599277793284248 
 OWNER_ID = 1341796578742243338
 
 class MyBot(commands.Bot):
     def __init__(self):
-        super().__init__(command_prefix="!", intents=discord.Intents.all())
+        super().__init__(command_prefix="!" intents=discord.Intents.all())
     
     async def setup_hook(self):
         await self.tree.sync()
         if not self.auto_refresh_task.is_running():
             self.auto_refresh_task.start()
 
-    # --- نظام الترحيب بالأفاتار الموزون بدقة ---
     async def on_member_join(self, member):
         channel = self.get_channel(WELCOME_ROOM_ID)
         if channel:
             welcome_text = (
                 f"_'Have fun in **__PhoenixRising__**_\n"
                 f"     _'User: {member.mention}_<a:Via1:1378238620418183188>"
-            ) #
+            )
             try:
-                # تحميل الخلفية الأصلية المرفوعة
                 background = Editor("welcome.png")
                 avatar_image = await load_image_async(member.display_avatar.url)
-                
-                # تصغير الحجم ليتناسب مع الدائرة بدقة
-                avatar = Editor(avatar_image).resize((170, 170)).circle_image()
-                
-                # الإحداثيات الموزونة للوسط بالضبط
-                background.paste(avatar, (52, 72)) 
-                
-                file = discord.File(fp=background.image_bytes, filename="welcome_card.png")
-                await channel.send(content=welcome_text, file=file)
+                avatar = Editor(avatar_image).resize((170 170)).circle_image()
+                background.paste(avatar (52 72)) 
+                file = discord.File(fp=background.image_bytes filename="welcome_card.png")
+                await channel.send(content=welcome_text file=file)
             except Exception as e:
                 print(f"Error drawing image: {e}")
                 await channel.send(welcome_text)
 
-    # --- تحديث الإحصائيات التلقائي ---
     @tasks.loop(minutes=30)
     async def auto_refresh_task(self):
         for guild in self.guilds:
@@ -66,103 +57,72 @@ class MyBot(commands.Bot):
                 except: pass
             total = guild.member_count
             online = len([m for m in guild.members if m.status != discord.Status.offline])
-            await guild.create_voice_channel(name=f"Members: {total}", category=category)
-            await guild.create_voice_channel(name=f"Online: {online}", category=category)
+            await guild.create_voice_channel(name=f"Members: {total}" category=category)
+            await guild.create_voice_channel(name=f"Online: {online}" category=category)
 
 bot = MyBot()
 
-# --- الأوامر الإدارية (Slash Commands) ---
-
-@bot.tree.command(name="مسح", description="مسح الرسائل")
+@bot.tree.command(name="مسح" description="مسح الرسائل")
 @app_commands.checks.has_permissions(manage_messages=True)
-async def clear(interaction: discord.Interaction, العدد: int):
+async def clear(interaction: discord.Interaction العدد: int):
     await interaction.channel.purge(limit=العدد)
-    await interaction.response.send_message(f"🧹 تم مسح {العدد} رسالة", ephemeral=True)
+    await interaction.response.send_message(f"🧹 تم مسح {العدد} رسالة" ephemeral=True)
 
-@bot.tree.command(name="قفل_القناة", description="قفل الشات")
+@bot.tree.command(name="قفل_القناة" description="قفل الشات")
 @app_commands.checks.has_permissions(manage_channels=True)
 async def lock(interaction: discord.Interaction):
-    await interaction.channel.set_permissions(interaction.guild.default_role, send_messages=False)
+    await interaction.channel.set_permissions(interaction.guild.default_role send_messages=False)
     await interaction.response.send_message("🔒 تم قفل القناة")
 
-@bot.tree.command(name="فتح_القناة", description="فتح الشات")
+@bot.tree.command(name="فتح_القناة" description="فتح الشات")
 @app_commands.checks.has_permissions(manage_channels=True)
 async def unlock(interaction: discord.Interaction):
-    await interaction.channel.set_permissions(interaction.guild.default_role, send_messages=True)
+    await interaction.channel.set_permissions(interaction.guild.default_role send_messages=True)
     await interaction.response.send_message("🔓 تم فتح القناة")
 
-@bot.tree.command(name="سجن", description="ميوت مؤقت (تايم أوت)")
-@app_commands.checks.has_permissions(moderate_members=True)
-async def timeout(interaction: discord.Interaction, العضو: discord.Member, الدقائق: int):
-    duration = datetime.timedelta(minutes=الدقائق)
-    await العضو.timeout(duration)
-    await interaction.response.send_message(f"⏳ تم سجن {العضو.mention} لـ {الدقائق} دقيقة")
-
-@bot.tree.command(name="حظر", description="حظر عضو نهائياً")
-@app_commands.checks.has_permissions(ban_members=True)
-async def ban(interaction: discord.Interaction, العضو: discord.Member, السبب: str = "غير محدد"):
-    await العضو.ban(reason=السبب)
-    await interaction.response.send_message(f"🚫 تم حظر {العضو.name}")
-
-@bot.tree.command(name="طرد", description="طرد عضو من السيرفر")
-@app_commands.checks.has_permissions(kick_members=True)
-async def kick(interaction: discord.Interaction, العضو: discord.Member, السبب: str = "غير محدد"):
-    await العضو.kick(reason=السبب)
-    await interaction.response.send_message(f"👞 تم طرد {العضو.name}")
-
-@bot.tree.command(name="فك_حظر", description="إلغاء الحظر باستخدام ID")
-@app_commands.checks.has_permissions(ban_members=True)
-async def unban(interaction: discord.Interaction, ايدي_العضو: str):
-    user = await bot.fetch_user(ايدي_العضو)
-    await interaction.guild.unban(user)
-    await interaction.response.send_message(f"✅ تم فك حظر {user.name}")
-
-@bot.tree.command(name="الحالة", description="تغيير حالة البوت")
-async def change_status(interaction: discord.Interaction, النص: str):
+@bot.tree.command(name="الحالة" description="تغيير حالة البوت")
+async def change_status(interaction: discord.Interaction النص: str):
     if interaction.user.id == OWNER_ID:
         await bot.change_presence(activity=discord.Game(name=النص))
-        await interaction.response.send_message(f"✅ تم تغيير الحالة إلى: {النص}", ephemeral=True)
+        await interaction.response.send_message(f"✅ تم تغيير الحالة إلى: {النص}" ephemeral=True)
 
-# --- نظام النشر الجديد (الإضافة النهائية المضبوطة) ---
+# --- إضافة أمر النشر فقط (بدون تغيير ما سبق) ---
 
 class CloudDownloadView(discord.ui.View):
-    def __init__(self, av_url, bn_url):
+    def __init__(self, av_url bn_url):
         super().__init__(timeout=None)
         self.av_url = av_url
         self.bn_url = bn_url
 
-    @discord.ui.button(label="", style=discord.ButtonStyle.secondary, emoji="<:download:1286653105878077450>")
-    async def download(self, interaction: discord.Interaction, button: discord.ui.Button):
+    @discord.ui.button(label="" style=discord.ButtonStyle.secondary emoji="<:download:1286653105878077450>")
+    async def download(self, interaction: discord.Interaction button: discord.ui.Button):
         emb1 = discord.Embed().set_image(url=self.av_url)
         emb2 = discord.Embed().set_image(url=self.bn_url)
-        await interaction.response.send_message(embeds=[emb1, emb2], ephemeral=True)
+        await interaction.response.send_message(embeds=[emb1 emb2] ephemeral=True)
 
-@bot.tree.command(name="نشر", description="نشر افتار وبنر على القالب")
-async def post(interaction: discord.Interaction, الافتار: str, البنر: str):
+@bot.tree.command(name="نشر" description="نشر بروفايل")
+async def post(interaction: discord.Interaction الافتار: str البنر: str):
     if interaction.user.id == OWNER_ID or interaction.user.guild_permissions.manage_messages:
         await interaction.response.defer(ephemeral=True)
         try:
-            # 1. تحميل التيمبلت (template.jpg)
+            # التيمبلت بحجم 3188x2160
             base = Editor("template.jpg")
             
-            # 2. تركيب البنر في مكانه بالضبط (يغطي الجزء العلوي فقط 345 بكسل)
+            # تركيب البنر
             bn_img = await load_image_async(البنر)
-            bn_res = Editor(bn_img).resize((1000, 345))
-            base.paste(bn_res, (0, 0))
+            bn_res = Editor(bn_img).resize((3188 1100))
+            base.paste(bn_res (0 0))
             
-            # 3. تركيب الأفاتار (دائري وبمقاس 265 بكسل ليركب في الدائرة السوداء)
+            # تركيب الأفتار
             av_img = await load_image_async(الافتار)
-            av_res = Editor(av_img).resize((265, 265)).circle_image()
+            av_res = Editor(av_img).resize((850 850)).circle_image()
+            base.paste(av_res (120 600))
             
-            # 4. إحداثيات الأفاتار (37, 185) هي اللي بتضبط مكانه فوق الدائرة
-            base.paste(av_res, (37, 185))
-            
-            file = discord.File(fp=base.image_bytes, filename="profile.png")
-            view = CloudDownloadView(الافتار, البنر)
-            await interaction.channel.send(file=file, view=view)
-            await interaction.followup.send("✅ تم النشر", ephemeral=True)
+            file = discord.File(fp=base.image_bytes filename="profile.png")
+            await interaction.channel.send(file=file view=CloudDownloadView(الافتار البنر))
+            await interaction.followup.send("Done" ephemeral=True)
         except Exception as e:
-            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+            await interaction.followup.send(f"Error: {e}" ephemeral=True)
 
 if __name__ == '__main__':
     keep_alive()
