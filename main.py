@@ -3,7 +3,7 @@ from discord.ext import commands, tasks
 from discord import app_commands
 from flask import Flask
 from threading import Thread
-from easy_pil import Editor, load_image_async
+from easy_pil import Editor, load_image_async #
 
 # --- نظام الاستضافة (لضمان عمل البوت 24 ساعة) ---
 app = Flask('')
@@ -17,25 +17,6 @@ def keep_alive():
 WELCOME_ROOM_ID = 1347630031337160764
 CATEGORY_ID = 1497599277793284248 
 OWNER_ID = 1341796578742243338
-
-# --- نظام الأزرار المحدث (شكل السحابة) ---
-class AvatarDownload(discord.ui.View):
-    def __init__(self, av_url, bn_url):
-        super().__init__(timeout=None)
-        self.av_url = av_url
-        self.bn_url = bn_url
-
-    # تعديل الزر ليكون أيقونة سحابية فقط وبدون نص طويل
-    @discord.ui.button(label="", style=discord.ButtonStyle.secondary, emoji="☁️")
-    async def dl(self, interaction: discord.Interaction, button: discord.ui.Button):
-        embeds = []
-        if self.av_url:
-            e1 = discord.Embed().set_image(url=self.av_url)
-            embeds.append(e1)
-        if self.bn_url:
-            e2 = discord.Embed().set_image(url=self.bn_url)
-            embeds.append(e2)
-        await interaction.response.send_message(embeds=embeds, ephemeral=True)
 
 class MyBot(commands.Bot):
     def __init__(self):
@@ -53,12 +34,18 @@ class MyBot(commands.Bot):
             welcome_text = (
                 f"_'Have fun in **__PhoenixRising__**_\n"
                 f"     _'User: {member.mention}_<a:Via1:1378238620418183188>"
-            )
+            ) #
             try:
+                # تحميل الخلفية الأصلية المرفوعة
                 background = Editor("welcome.png")
                 avatar_image = await load_image_async(member.display_avatar.url)
+                
+                # تصغير الحجم ليتناسب مع الدائرة بدقة
                 avatar = Editor(avatar_image).resize((170, 170)).circle_image()
+                
+                # الإحداثيات الموزونة للوسط بالضبط
                 background.paste(avatar, (52, 72)) 
+                
                 file = discord.File(fp=background.image_bytes, filename="welcome_card.png")
                 await channel.send(content=welcome_text, file=file)
             except Exception as e:
@@ -84,19 +71,7 @@ class MyBot(commands.Bot):
 
 bot = MyBot()
 
-# --- أمر النشر بتصميم الصور المسحوبة (بدون نصوص إضافية) ---
-@bot.tree.command(name="نشر", description="نشر افتار وبنر")
-async def post(interaction: discord.Interaction, الافتار: str, البنر: str):
-    if interaction.user.id == OWNER_ID or interaction.user.guild_permissions.manage_messages:
-        # إمبيد بدون عنوان وبدون وصف عشان يطلع شكل الصور بس
-        emb = discord.Embed(color=0x2b2d31) 
-        emb.set_image(url=البنر)
-        emb.set_thumbnail(url=الافتار)
-        
-        await interaction.channel.send(embed=emb, view=AvatarDownload(الافتار, البنر))
-        await interaction.response.send_message("Done", ephemeral=True)
-
-# --- الأوامر الإدارية ---
+# --- الأوامر الإدارية (Slash Commands) ---
 
 @bot.tree.command(name="مسح", description="مسح الرسائل")
 @app_commands.checks.has_permissions(manage_messages=True)
@@ -147,6 +122,44 @@ async def change_status(interaction: discord.Interaction, النص: str):
     if interaction.user.id == OWNER_ID:
         await bot.change_presence(activity=discord.Game(name=النص))
         await interaction.response.send_message(f"✅ تم تغيير الحالة إلى: {النص}", ephemeral=True)
+
+# --- نظام النشر بالخلفية المخصصة (الإضافة المطلوبة) ---
+class CustomDownload(discord.ui.View):
+    def __init__(self, av, bn):
+        super().__init__(timeout=None)
+        self.av, self.bn = av, bn
+    
+    # استخدام الإيموجي اللي طلبته لزر التحميل
+    @discord.ui.button(label="", style=discord.ButtonStyle.secondary, emoji="<:download:1286653105878077450>")
+    async def dl(self, it, btn):
+        e1 = discord.Embed().set_image(url=self.av)
+        e2 = discord.Embed().set_image(url=self.bn)
+        await it.response.send_message(embeds=[e1, e2], ephemeral=True)
+
+@bot.tree.command(name="نشر", description="نشر افتار وبنر على القالب")
+async def post_custom(interaction: discord.Interaction, الافتار: str, البنر: str):
+    if interaction.user.id == OWNER_ID or interaction.user.guild_permissions.manage_messages:
+        await interaction.response.defer(ephemeral=True)
+        try:
+            # 1. تحميل صورة القالب (Template)
+            # ملاحظة: احفظ الصورة اللي أرسلتها باسم template.jpg في مجلد البوت
+            base = Editor("template.jpg") 
+            
+            # 2. معالجة البنر (وضعه في الخلفية العلوية)
+            banner_img = await load_image_async(البنر)
+            banner_res = Editor(banner_img).resize((1000, 500)) # مقاس تقريبي للبنر
+            base.paste(banner_res, (0, 0))
+            
+            # 3. معالجة الأفاتار (دائري ووضعه فوق البنر والقالب)
+            avatar_img = await load_image_async(الافتار)
+            avatar_res = Editor(avatar_img).resize((240, 240)).circle_image()
+            base.paste(avatar_res, (40, 230)) # إحداثيات تقريبية لمكان الدائرة في الصورة
+            
+            file = discord.File(fp=base.image_bytes, filename="post.png")
+            await interaction.channel.send(file=file, view=CustomDownload(الافتار, البنر))
+            await interaction.followup.send("Done")
+        except Exception as e:
+            await interaction.followup.send(f"Error: {e}")
 
 if __name__ == '__main__':
     keep_alive()
