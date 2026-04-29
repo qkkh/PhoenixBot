@@ -123,7 +123,7 @@ async def change_status(interaction: discord.Interaction, النص: str):
         await bot.change_presence(activity=discord.Game(name=النص))
         await interaction.response.send_message(f"✅ تم تغيير الحالة إلى: {النص}", ephemeral=True)
 
-# --- إضافة نظام النشر الجديدة بالكامل في نهاية الملف ---
+# --- إضافة نظام النشر الجديدة في نهاية الملف ---
 
 class CloudDownloadView(discord.ui.View):
     def __init__(self, av_url, bn_url):
@@ -131,6 +131,7 @@ class CloudDownloadView(discord.ui.View):
         self.av_url = av_url
         self.bn_url = bn_url
 
+    # استخدام الإيموجي اللي طلبته لزر التحميل
     @discord.ui.button(label="", style=discord.ButtonStyle.secondary, emoji="<:download:1286653105878077450>")
     async def download(self, interaction: discord.Interaction, button: discord.ui.Button):
         emb1 = discord.Embed().set_image(url=self.av_url)
@@ -138,27 +139,24 @@ class CloudDownloadView(discord.ui.View):
         await interaction.response.send_message(embeds=[emb1, emb2], ephemeral=True)
 
 @bot.tree.command(name="نشر", description="نشر افتار وبنر بتنسيق القالب")
-async def post_avatar(interaction: discord.Interaction, الافتار: str, البنر: str):
+async def post(interaction: discord.Interaction, الافتار: str, البنر: str):
     if interaction.user.id == OWNER_ID or interaction.user.guild_permissions.manage_messages:
         await interaction.response.defer(ephemeral=True)
         try:
-            # تحميل القالب (الصورة التي أرسلتها أنت)
+            # 1. تحميل التيمبلت (تأكد ان اسمه template.jpg في الملفات)
             base = Editor("template.jpg")
             
-            # تنظيف المنطقة السفلية (رسم مستطيل أسود يمسح أي صور قديمة تحت)
-            base.rectangle((0, 345), width=1000, height=655, fill="black")
-            
-            # إضافة البنر الجديد في الجزء العلوي
+            # 2. تركيب البنر في مكانه العلوي
             bn_img = await load_image_async(البنر)
             bn_res = Editor(bn_img).resize((1000, 345))
             base.paste(bn_res, (0, 0))
             
-            # إضافة الأفاتار الجديد بشكل دائري في مكانه الصحيح
+            # 3. تركيب الأفاتار بشكل دائري في مكانه المضبوط
             av_img = await load_image_async(الافتار)
-            av_res = Editor(av_img).resize((280, 280)).circle_image()
-            base.paste(av_res, (35, 185))
+            av_res = Editor(av_img).resize((265, 265)).circle_image()
+            base.paste(av_res, (37, 185))
             
-            file = discord.File(fp=base.image_bytes, filename="avatar_post.png")
+            file = discord.File(fp=base.image_bytes, filename="profile.png")
             view = CloudDownloadView(الافتار, البنر)
             await interaction.channel.send(file=file, view=view)
             await interaction.followup.send("Done", ephemeral=True)
