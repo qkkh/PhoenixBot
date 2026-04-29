@@ -123,43 +123,47 @@ async def change_status(interaction: discord.Interaction, النص: str):
         await bot.change_presence(activity=discord.Game(name=النص))
         await interaction.response.send_message(f"✅ تم تغيير الحالة إلى: {النص}", ephemeral=True)
 
-# --- نظام النشر بالخلفية المخصصة (الإضافة المطلوبة) ---
-class CustomDownload(discord.ui.View):
-    def __init__(self, av, bn):
-        super().__init__(timeout=None)
-        self.av, self.bn = av, bn
-    
-    # استخدام الإيموجي اللي طلبته لزر التحميل
-    @discord.ui.button(label="", style=discord.ButtonStyle.secondary, emoji="<:download:1286653105878077450>")
-    async def dl(self, it, btn):
-        e1 = discord.Embed().set_image(url=self.av)
-        e2 = discord.Embed().set_image(url=self.bn)
-        await it.response.send_message(embeds=[e1, e2], ephemeral=True)
+# --- إضافة نظام النشر الجديدة بالكامل في نهاية الملف ---
 
-@bot.tree.command(name="نشر", description="نشر افتار وبنر على القالب")
-async def post_custom(interaction: discord.Interaction, الافتار: str, البنر: str):
+class CloudDownloadView(discord.ui.View):
+    def __init__(self, av_url, bn_url):
+        super().__init__(timeout=None)
+        self.av_url = av_url
+        self.bn_url = bn_url
+
+    @discord.ui.button(label="", style=discord.ButtonStyle.secondary, emoji="<:download:1286653105878077450>")
+    async def download(self, interaction: discord.Interaction, button: discord.ui.Button):
+        emb1 = discord.Embed().set_image(url=self.av_url)
+        emb2 = discord.Embed().set_image(url=self.bn_url)
+        await interaction.response.send_message(embeds=[emb1, emb2], ephemeral=True)
+
+@bot.tree.command(name="نشر", description="نشر افتار وبنر بتنسيق القالب")
+async def post_avatar(interaction: discord.Interaction, الافتار: str, البنر: str):
     if interaction.user.id == OWNER_ID or interaction.user.guild_permissions.manage_messages:
         await interaction.response.defer(ephemeral=True)
         try:
-            # 1. تحميل صورة القالب (Template)
-            # ملاحظة: احفظ الصورة اللي أرسلتها باسم template.jpg في مجلد البوت
-            base = Editor("template.jpg") 
+            # تحميل القالب (الصورة التي أرسلتها أنت)
+            base = Editor("template.jpg")
             
-            # 2. معالجة البنر (وضعه في الخلفية العلوية)
-            banner_img = await load_image_async(البنر)
-            banner_res = Editor(banner_img).resize((1000, 500)) # مقاس تقريبي للبنر
-            base.paste(banner_res, (0, 0))
+            # تنظيف المنطقة السفلية (رسم مستطيل أسود يمسح أي صور قديمة تحت)
+            base.rectangle((0, 345), width=1000, height=655, fill="black")
             
-            # 3. معالجة الأفاتار (دائري ووضعه فوق البنر والقالب)
-            avatar_img = await load_image_async(الافتار)
-            avatar_res = Editor(avatar_img).resize((240, 240)).circle_image()
-            base.paste(avatar_res, (40, 230)) # إحداثيات تقريبية لمكان الدائرة في الصورة
+            # إضافة البنر الجديد في الجزء العلوي
+            bn_img = await load_image_async(البنر)
+            bn_res = Editor(bn_img).resize((1000, 345))
+            base.paste(bn_res, (0, 0))
             
-            file = discord.File(fp=base.image_bytes, filename="post.png")
-            await interaction.channel.send(file=file, view=CustomDownload(الافتار, البنر))
-            await interaction.followup.send("Done")
+            # إضافة الأفاتار الجديد بشكل دائري في مكانه الصحيح
+            av_img = await load_image_async(الافتار)
+            av_res = Editor(av_img).resize((280, 280)).circle_image()
+            base.paste(av_res, (35, 185))
+            
+            file = discord.File(fp=base.image_bytes, filename="avatar_post.png")
+            view = CloudDownloadView(الافتار, البنر)
+            await interaction.channel.send(file=file, view=view)
+            await interaction.followup.send("Done", ephemeral=True)
         except Exception as e:
-            await interaction.followup.send(f"Error: {e}")
+            await interaction.followup.send(f"Error: {e}", ephemeral=True)
 
 if __name__ == '__main__':
     keep_alive()
