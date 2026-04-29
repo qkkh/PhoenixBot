@@ -123,7 +123,7 @@ async def change_status(interaction: discord.Interaction, النص: str):
         await bot.change_presence(activity=discord.Game(name=النص))
         await interaction.response.send_message(f"✅ تم تغيير الحالة إلى: {النص}", ephemeral=True)
 
-# --- إضافة نظام النشر الجديدة في نهاية الملف ---
+# --- نظام النشر الجديد (الإضافة النهائية المضبوطة) ---
 
 class CloudDownloadView(discord.ui.View):
     def __init__(self, av_url, bn_url):
@@ -131,37 +131,38 @@ class CloudDownloadView(discord.ui.View):
         self.av_url = av_url
         self.bn_url = bn_url
 
-    # استخدام الإيموجي اللي طلبته لزر التحميل
     @discord.ui.button(label="", style=discord.ButtonStyle.secondary, emoji="<:download:1286653105878077450>")
     async def download(self, interaction: discord.Interaction, button: discord.ui.Button):
         emb1 = discord.Embed().set_image(url=self.av_url)
         emb2 = discord.Embed().set_image(url=self.bn_url)
         await interaction.response.send_message(embeds=[emb1, emb2], ephemeral=True)
 
-@bot.tree.command(name="نشر", description="نشر افتار وبنر بتنسيق القالب")
+@bot.tree.command(name="نشر", description="نشر افتار وبنر على القالب")
 async def post(interaction: discord.Interaction, الافتار: str, البنر: str):
     if interaction.user.id == OWNER_ID or interaction.user.guild_permissions.manage_messages:
         await interaction.response.defer(ephemeral=True)
         try:
-            # 1. تحميل التيمبلت (تأكد ان اسمه template.jpg في الملفات)
+            # 1. تحميل التيمبلت (template.jpg)
             base = Editor("template.jpg")
             
-            # 2. تركيب البنر في مكانه العلوي
+            # 2. تركيب البنر في مكانه بالضبط (يغطي الجزء العلوي فقط 345 بكسل)
             bn_img = await load_image_async(البنر)
             bn_res = Editor(bn_img).resize((1000, 345))
             base.paste(bn_res, (0, 0))
             
-            # 3. تركيب الأفاتار بشكل دائري في مكانه المضبوط
+            # 3. تركيب الأفاتار (دائري وبمقاس 265 بكسل ليركب في الدائرة السوداء)
             av_img = await load_image_async(الافتار)
             av_res = Editor(av_img).resize((265, 265)).circle_image()
+            
+            # 4. إحداثيات الأفاتار (37, 185) هي اللي بتضبط مكانه فوق الدائرة
             base.paste(av_res, (37, 185))
             
             file = discord.File(fp=base.image_bytes, filename="profile.png")
             view = CloudDownloadView(الافتار, البنر)
             await interaction.channel.send(file=file, view=view)
-            await interaction.followup.send("Done", ephemeral=True)
+            await interaction.followup.send("✅ تم النشر", ephemeral=True)
         except Exception as e:
-            await interaction.followup.send(f"Error: {e}", ephemeral=True)
+            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
 
 if __name__ == '__main__':
     keep_alive()
