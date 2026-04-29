@@ -88,8 +88,6 @@ async def change_status(interaction: discord.Interaction, النص: str):
         await bot.change_presence(activity=discord.Game(name=النص))
         await interaction.response.send_message(f"✅ تم تغيير الحالة إلى: {النص}", ephemeral=True)
 
-# --- إضافة أمر النشر فقط (بدون تغيير ما سبق) ---
-
 class CloudDownloadView(discord.ui.View):
     def __init__(self, av_url, bn_url):
         super().__init__(timeout=None)
@@ -107,20 +105,17 @@ async def post(interaction: discord.Interaction, الافتار: str, البنر
     if interaction.user.id == OWNER_ID or interaction.user.guild_permissions.manage_messages:
         await interaction.response.defer(ephemeral=True)
         try:
-            # التيمبلت بحجم 3188x2160
             base = Editor("template.jpg")
             
-            # تركيب البنر (تعديل المقاس ليكون مناسب للجزء العلوي بالكامل)
             bn_img = await load_image_async(البنر)
-            bn_res = Editor(bn_img).resize((3188, 1150))
+            bn_res = Editor(bn_img).resize((3188, 1100))
             base.paste(bn_res, (0, 0))
             
-            # تركيب الأفتار (تكبير المقاس لـ 980x980 عشان يركب على الدائرة بالتيمبلت الكبير)
             av_img = await load_image_async(الافتار)
-            av_res = Editor(av_img).resize((980, 980)).circle_image()
-            
-            # الوزنية الجديدة (اليسار 50، ومن فوق 480) لضبط السنتر
-            base.paste(av_res, (50, 480))
+            # تم تعديل المقاس ليركب على الدائرة
+            av_res = Editor(av_img).resize((840, 840)).circle_image()
+            # تم تعديل الوزنية لتركب في السنتر (125, 595)
+            base.paste(av_res, (125, 595))
             
             file = discord.File(fp=base.image_bytes, filename="profile.png")
             await interaction.channel.send(file=file, view=CloudDownloadView(الافتار, البنر))
