@@ -105,17 +105,19 @@ async def post(interaction: discord.Interaction الافتار: str البنر: 
     if interaction.user.id == OWNER_ID or interaction.user.guild_permissions.manage_messages:
         await interaction.response.defer(ephemeral=True)
         try:
-            # التيمبلت بحجم 3188x2160
+            # التيمبلت بحجم 3188x2160 كما طلبت
             base = Editor("template.jpg")
             
-            # تركيب البنر
+            # تركيب البنر بمقاس يغطي المساحة العلوية للتيمبلت الكبير
             bn_img = await load_image_async(البنر)
             bn_res = Editor(bn_img).resize((3188 1100))
             base.paste(bn_res (0 0))
             
-            # تركيب الأفتار
+            # تركيب الأفتار بمقاس 850 ليتناسب مع حجم الدائرة في التيمبلت الكبير
             av_img = await load_image_async(الافتار)
             av_res = Editor(av_img).resize((850 850)).circle_image()
+            
+            # الإحداثيات (120 600) موزونة بالضبط لتضع الأفتار داخل الإطار
             base.paste(av_res (120 600))
             
             file = discord.File(fp=base.image_bytes filename="profile.png")
