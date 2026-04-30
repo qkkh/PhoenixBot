@@ -6,6 +6,7 @@ from threading import Thread
 from easy_pil import Editor, load_image_async, Canvas
 from PIL import Image
 
+# --- نظام البقاء متصلاً Keep Alive ---
 app = Flask('')
 @app.route('/')
 def home(): return "Phoenix Rising Active"
@@ -15,10 +16,12 @@ def keep_alive():
     t.daemon = True
     t.start()
 
+# --- الإعدادات الثابتة ---
 WELCOME_ROOM_ID = 1347630031337160764
 CATEGORY_ID = 1497599277793284248 
 OWNER_ID = 1341796578742243338
 
+# --- دالة تحميل الصور ---
 async def download_image(url):
     headers = {'User-Agent': 'Mozilla/5.0'}
     async with aiohttp.ClientSession(headers=headers) as session:
@@ -30,6 +33,7 @@ async def download_image(url):
             return None
     return None
 
+# --- واجهة أزرار التحميل (تم إصلاحها لمنع الـ failed) ---
 class CloudDownloadView(discord.ui.View):
     def __init__(self, av_data, bn_data):
         super().__init__(timeout=None)
@@ -38,27 +42,34 @@ class CloudDownloadView(discord.ui.View):
 
     @discord.ui.button(label="", style=discord.ButtonStyle.secondary, emoji="<:download:1286653105878077450>")
     async def download(self, interaction: discord.Interaction, button: discord.ui.Button):
-        # تم إبقاء الـ defer هنا فقط للزر لأن تحميل الملفات داخل الأزرار يحتاج وقت إضافي دائماً
+        # ضروري جداً هنا لمنع ظهور الـ failed في الأزرار
         await interaction.response.defer(ephemeral=True)
         
         try:
             files = []
             embeds = []
             
+            # معالجة الصور وإرسالها
             if self.av_data:
-                file1 = discord.File(io.BytesIO(self.av_data), filename="avatar.png")
-                files.append(file1)
+                av_file = discord.File(io.BytesIO(self.av_data), filename="avatar.png")
+                files.append(av_file)
                 embeds.append(discord.Embed(color=0x2b2d31).set_image(url="attachment://avatar.png"))
             
             if self.bn_data:
-                file2 = discord.File(io.BytesIO(self.bn_data), filename="banner.png")
-                files.append(file2)
+                bn_file = discord.File(io.BytesIO(self.bn_data), filename="banner.png")
+                files.append(bn_file)
                 embeds.append(discord.Embed(color=0x2b2d31).set_image(url="attachment://banner.png"))
             
-            await interaction.followup.send(embeds=embeds, files=files, ephemeral=True)
-        except:
-            await interaction.followup.send("حدث بطء في الشبكة حاول مجدداً", ephemeral=True)
+            if files:
+                await interaction.followup.send(embeds=embeds, files=files, ephemeral=True)
+            else:
+                await interaction.followup.send("لم يتم العثور على بيانات الصور", ephemeral=True)
+        except Exception as e:
+            # لو حصل أي تأخير في الشبكة
+            try: await interaction.followup.send("حدث خطأ أثناء تحميل الصور، حاول مرة أخرى", ephemeral=True)
+            except: pass
 
+# --- كلاس البوت الأساسي ---
 class MyBot(commands.Bot):
     def __init__(self):
         super().__init__(command_prefix="!", intents=discord.Intents.all())
@@ -68,6 +79,7 @@ class MyBot(commands.Bot):
         if not self.auto_refresh_task.is_running():
             self.auto_refresh_task.start()
 
+    # نظام الترحيب التلقائي
     async def on_member_join(self, member):
         channel = self.get_channel(WELCOME_ROOM_ID)
         if channel:
@@ -86,6 +98,7 @@ class MyBot(commands.Bot):
             except:
                 await channel.send(content=welcome_text)
 
+    # نظام تحديث الإحصائيات (كل 30 دقيقة)
     @tasks.loop(minutes=30)
     async def auto_refresh_task(self):
         for guild in self.guilds:
@@ -101,11 +114,13 @@ class MyBot(commands.Bot):
 
 bot = MyBot()
 
+# --- الأوامر التفاعلية Slash Commands ---
+
 @bot.tree.command(name="نشر", description="نشر بروفايل")
 async def post(interaction: discord.Interaction, الافتار: str, البنر: str):
     if interaction.user.id == OWNER_ID or interaction.user.guild_permissions.manage_messages:
-        # تم حذف الـ defer من هنا بناءً على طلبك
         try:
+            # تحميل البيانات
             av_data = await download_image(الافتار)
             bn_data = await download_image(البنر)
             
@@ -115,6 +130,7 @@ async def post(interaction: discord.Interaction, الافتار: str, البنر
             av_pil = Image.open(io.BytesIO(av_data))
             bn_pil = Image.open(io.BytesIO(bn_data))
             
+            # إنشاء التصميم
             canvas = Editor(Canvas(size=(3188, 2160), color="#000000")) 
             canvas.paste(Editor(bn_pil).resize((3188, 1100)), (0, 0))
             canvas.paste(Editor(av_pil).resize((900, 900)).circle_image(), (100, 550))
@@ -128,11 +144,10 @@ async def post(interaction: discord.Interaction, الافتار: str, البنر
             embed = discord.Embed(color=0x2b2d31)
             embed.set_image(url="attachment://profile.png")
             
-            # إرسال النتيجة كاستجابة مباشرة (response)
+            # إرسال النتيجة
             await interaction.channel.send(embed=embed, file=file, view=CloudDownloadView(av_data, bn_data))
             await interaction.response.send_message("تم النشر بنجاح", ephemeral=True)
         except Exception as e:
-            # استخدام الاستجابة المباشرة في حالة الخطأ أيضاً
             if not interaction.response.is_done():
                 await interaction.response.send_message("حدث خطأ حاول مرة اخرى", ephemeral=True)
 
@@ -140,7 +155,7 @@ async def post(interaction: discord.Interaction, الافتار: str, البنر
 @app_commands.checks.has_permissions(manage_messages=True)
 async def clear(interaction: discord.Interaction, العدد: int):
     await interaction.channel.purge(limit=العدد)
-    await interaction.response.send_message(f"تم مسح {العدد}", ephemeral=True)
+    await interaction.response.send_message(f"تم propaganda {العدد}", ephemeral=True)
 
 @bot.tree.command(name="قفل_القناة")
 @app_commands.checks.has_permissions(manage_channels=True)
@@ -160,6 +175,7 @@ async def change_status(interaction: discord.Interaction, النص: str):
         await bot.change_presence(activity=discord.Game(name=النص))
         await interaction.response.send_message("تم تغيير الحالة", ephemeral=True)
 
+# --- التشغيل ---
 if __name__ == '__main__':
     keep_alive()
     bot.run(os.getenv('DISCORD_TOKEN'))
