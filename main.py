@@ -65,9 +65,49 @@ class MyBot(commands.Bot):
             await guild.create_voice_channel(name=f"Members: {total}", category=category)
             await guild.create_voice_channel(name=f"Online: {online}", category=category)
 
+    # ميزة التقاط الصور التلقائية للنشر
+    async def on_message(self, message):
+        if message.author.bot: return
+        
+        # إذا أرسلت صورتين ومعهم كلمة "نشر" في المحتوى أو أرسلتهم فقط وأنت المالك
+        if len(message.attachments) == 2 and (message.author.id == OWNER_ID or message.author.guild_permissions.manage_messages):
+            # التأكد أن الملفات المرفقة هي صور
+            if any(message.attachments[i].content_type.startswith('image') for i in range(2)):
+                msg = await message.channel.send("⏳ جاري معالجة الصور المرفقة...")
+                try:
+                    # حذف الرسالة الأصلية اللي فيها الصور
+                    await message.delete()
+                    
+                    avatar_url = message.attachments[0].url
+                    banner_url = message.attachments[1].url
+
+                    canvas = Editor(Canvas(size=(3188, 2160), color="#000000")) 
+                    
+                    # البنر
+                    bn_img = await load_image_async(banner_url)
+                    bn_res = Editor(bn_img).resize((3188, 1100))
+                    canvas.paste(bn_res, (0, 0))
+                    
+                    # الأفاتار
+                    av_img = await load_image_async(avatar_url)
+                    av_res = Editor(av_img).resize((900, 900)).circle_image()
+                    canvas.paste(av_res, (100, 550))
+                    
+                    # التيمبلت
+                    base = Editor("template.png") 
+                    canvas.paste(base, (0, 0))
+                    
+                    file = discord.File(fp=canvas.image_bytes, filename="profile.png")
+                    await message.channel.send(file=file, view=CloudDownloadView(avatar_url, banner_url))
+                    await msg.delete()
+                except Exception as e:
+                    await message.channel.send(f"❌ خطأ: {e}")
+
+        await self.process_commands(message)
+
 bot = MyBot()
 
-# الأوامر الإدارية
+# الأوامر الإدارية (كلها موجودة بدون حذف)
 
 @bot.tree.command(name="مسح", description="مسح الرسائل")
 @app_commands.checks.has_permissions(manage_messages=True)
@@ -105,30 +145,21 @@ class CloudDownloadView(discord.ui.View):
         emb2 = discord.Embed().set_image(url=self.bn_url)
         await interaction.response.send_message(embeds=[emb1, emb2], ephemeral=True)
 
-# نظام النشر الاحترافي المعدل ليعمل مع الصورة المفرغة PNG
-@bot.tree.command(name="نشر", description="نشر بروفايل")
+# أمر النشر القديم (تركته لك عشان لو احتجت تستخدم رابط في أي وقت)
+@bot.tree.command(name="نشر", description="نشر بروفايل عبر رابط")
 async def post(interaction: discord.Interaction, الافتار: str, البنر: str):
     if interaction.user.id == OWNER_ID or interaction.user.guild_permissions.manage_messages:
         await interaction.response.defer(ephemeral=True)
         try:
-            # إنشاء لوحة أساسية سوداء (مقاس التيمبلت الكبير)
             canvas = Editor(Canvas(size=(3188, 2160), color="#000000")) 
-            
-            # الطبقة 1: البنر (في الخلف)
             bn_img = await load_image_async(البنر)
             bn_res = Editor(bn_img).resize((3188, 1100))
             canvas.paste(bn_res, (0, 0))
-            
-            # الطبقة 2: الأفاتار (يمرر من تحت فتحة التيمبلت)
             av_img = await load_image_async(الافتار)
             av_res = Editor(av_img).resize((900, 900)).circle_image()
             canvas.paste(av_res, (100, 550))
-            
-            # الطبقة 3: التيمبلت المفرغ PNG (فوق الكل ليعطي انحناء البنر وعلامة DND)
-            # تم تغيير الامتداد هنا لـ .png ليتوافق مع شغلك في Photopea
             base = Editor("template.png") 
             canvas.paste(base, (0, 0))
-            
             file = discord.File(fp=canvas.image_bytes, filename="profile.png")
             await interaction.channel.send(file=file, view=CloudDownloadView(الافتار, البنر))
             await interaction.followup.send("Done", ephemeral=True)
