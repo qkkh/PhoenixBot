@@ -29,7 +29,7 @@ class MyBot(commands.Bot):
         if not self.auto_refresh_task.is_running():
             self.auto_refresh_task.start()
 
-    # أمر الترحيب التلقائي (بدون تغيير)
+    # أمر الترحيب التلقائي
     async def on_member_join(self, member):
         channel = self.get_channel(WELCOME_ROOM_ID)
         if channel:
@@ -48,7 +48,7 @@ class MyBot(commands.Bot):
                 print(f"Error drawing image: {e}")
                 await channel.send(welcome_text)
 
-    # تحديث إحصائيات السيرفر (بدون تغيير)
+    # تحديث إحصائيات السيرفر
     @tasks.loop(minutes=30)
     async def auto_refresh_task(self):
         for guild in self.guilds:
@@ -67,7 +67,7 @@ class MyBot(commands.Bot):
 
 bot = MyBot()
 
-# الأوامر الإدارية كاملة (بدون حذف أي أمر)
+# الأوامر الإدارية
 
 @bot.tree.command(name="مسح", description="مسح الرسائل")
 @app_commands.checks.has_permissions(manage_messages=True)
@@ -105,13 +105,13 @@ class CloudDownloadView(discord.ui.View):
         emb2 = discord.Embed().set_image(url=self.bn_url)
         await interaction.response.send_message(embeds=[emb1, emb2], ephemeral=True)
 
-# نظام النشر الاحترافي (الطبقات لضبط الانحناء وعلامة DND)
+# نظام النشر الاحترافي المعدل ليعمل مع الصورة المفرغة PNG
 @bot.tree.command(name="نشر", description="نشر بروفايل")
 async def post(interaction: discord.Interaction, الافتار: str, البنر: str):
     if interaction.user.id == OWNER_ID or interaction.user.guild_permissions.manage_messages:
         await interaction.response.defer(ephemeral=True)
         try:
-            # إنشاء لوحة أساسية سوداء
+            # إنشاء لوحة أساسية سوداء (مقاس التيمبلت الكبير)
             canvas = Editor(Canvas(size=(3188, 2160), color="#000000")) 
             
             # الطبقة 1: البنر (في الخلف)
@@ -119,14 +119,14 @@ async def post(interaction: discord.Interaction, الافتار: str, البنر
             bn_res = Editor(bn_img).resize((3188, 1100))
             canvas.paste(bn_res, (0, 0))
             
-            # الطبقة 2: الأفاتار (تحت التيمبلت) لضمان الانحناء
+            # الطبقة 2: الأفاتار (يمرر من تحت فتحة التيمبلت)
             av_img = await load_image_async(الافتار)
             av_res = Editor(av_img).resize((900, 900)).circle_image()
             canvas.paste(av_res, (100, 550))
             
-            # الطبقة 3: التيمبلت (فوق) ليعطي شكل الـ DND وانحناء البنر
-            # تم ضبط الاسم ليتوافق مع الملف في مجلدك
-            base = Editor("template.jpg") 
+            # الطبقة 3: التيمبلت المفرغ PNG (فوق الكل ليعطي انحناء البنر وعلامة DND)
+            # تم تغيير الامتداد هنا لـ .png ليتوافق مع شغلك في Photopea
+            base = Editor("template.png") 
             canvas.paste(base, (0, 0))
             
             file = discord.File(fp=canvas.image_bytes, filename="profile.png")
