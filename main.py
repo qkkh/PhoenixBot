@@ -57,28 +57,27 @@ class PostModal(discord.ui.Modal):
         canvas.image.save(img_bin, "PNG")
         img_bin.seek(0)
         await chan.send(file=discord.File(fp=img_bin, filename="p.png"))
-        await interaction.followup.send("تم الأرشفة بنجاح" ephemeral=True)
+        await interaction.followup.send("تم الأرشفة بنجاح", ephemeral=True)
 
 # الداشبرد المتكامل (النسخة العملاقة)
 class PhoenixMegaDashboard(discord.ui.View):
     def __init__(self): super().__init__(timeout=None)
 
-    # 1. قائمة النشر والأرشفة
+    # 1 قائمة النشر والأرشفة
     @discord.ui.select(placeholder="📂 إدارة الأرشيف والنشر", custom_id="m_post", options=[
-        discord.SelectOption(label="نشر شباب", value="شباب" emoji="👦"),
-        discord.SelectOption(label="نشر بنات", value="بنات" emoji="👧"),
-        discord.SelectOption(label="نشر انمي", value="انمي" emoji="⛩️")
+        discord.SelectOption(label="نشر شباب", value="شباب", emoji="👦"),
+        discord.SelectOption(label="نشر بنات", value="بنات", emoji="👧"),
+        discord.SelectOption(label="نشر انمي", value="انمي", emoji="⛩️")
     ])
     async def post_select(self, interaction, select):
         await interaction.response.send_modal(PostModal(select.values[0]))
 
-    # 2. قائمة الإشراف العام
+    # 2 قائمة الإشراف العام
     @discord.ui.select(placeholder="🛠️ أدوات الإشراف والتحكم", custom_id="m_mod", options=[
-        discord.SelectOption(label="قفل القناة", value="lock" emoji="🔒"),
-        discord.SelectOption(label="فتح القناة", value="unlock" emoji="🔓"),
-        discord.SelectOption(label="إخفاء القناة", value="hide" emoji="👻"),
-        discord.SelectOption(label="إظهار القناة", value="show" emoji="👀"),
-        discord.SelectOption(label="قفل السيرفر كامل", value="lock_all" emoji="🚨")
+        discord.SelectOption(label="قفل القناة", value="lock", emoji="🔒"),
+        discord.SelectOption(label="فتح القناة", value="unlock", emoji="🔓"),
+        discord.SelectOption(label="إخفاء القناة", value="hide", emoji="👻"),
+        discord.SelectOption(label="إظهار القناة", value="show", emoji="👀")
     ])
     async def mod_select(self, interaction, select):
         if not interaction.user.guild_permissions.manage_channels: return
@@ -88,24 +87,24 @@ class PhoenixMegaDashboard(discord.ui.View):
         if val == "unlock": await interaction.channel.set_permissions(role, send_messages=True)
         if val == "hide": await interaction.channel.set_permissions(role, view_channel=False)
         if val == "show": await interaction.channel.set_permissions(role, view_channel=True)
-        await interaction.response.send_message(f"تم تنفيذ الأمر: {val}" ephemeral=True)
+        await interaction.response.send_message(f"تم تنفيذ الأمر {val}", ephemeral=True)
 
-    # 3. قائمة الاختصارات السريعة
+    # 3 قائمة الاختصارات السريعة
     @discord.ui.select(placeholder="⚡ اختصارات سريعة", custom_id="m_quick", options=[
-        discord.SelectOption(label="تحديث الإحصائيات فوراً", value="stats" emoji="📊"),
-        discord.SelectOption(label="مسح 100 رسالة", value="purge" emoji="🧹"),
-        discord.SelectOption(label="معلومات السيرفر", value="info" emoji="💎")
+        discord.SelectOption(label="تحديث الإحصائيات فوراً", value="stats", emoji="📊"),
+        discord.SelectOption(label="مسح 100 رسالة", value="purge", emoji="🧹"),
+        discord.SelectOption(label="معلومات السيرفر", value="info", emoji="💎")
     ])
     async def quick_select(self, interaction, select):
         val = select.values[0]
         if val == "stats":
             await bot.auto_refresh_task()
-            await interaction.response.send_message("تم تحديث الرومات" ephemeral=True)
+            await interaction.response.send_message("تم تحديث الرومات", ephemeral=True)
         if val == "purge":
             await interaction.channel.purge(limit=100)
-            await interaction.response.send_message("تم التنظيف" ephemeral=True)
+            await interaction.response.send_message("تم التنظيف", ephemeral=True)
         if val == "info":
-            emb = discord.Embed(title=interaction.guild.name, description=f"الأعضاء: {interaction.guild.member_count}" color=0x2b2d31)
+            emb = discord.Embed(title=interaction.guild.name, description=f"الأعضاء {interaction.guild.member_count}", color=0x2b2d31)
             await interaction.response.send_message(embed=emb, ephemeral=True)
 
 class MyBot(commands.Bot):
@@ -144,13 +143,13 @@ class MyBot(commands.Bot):
 
 bot = MyBot()
 
-@bot.tree.command(name="setup_dashboard" description="إرسال لوحة التحكم العملاقة")
+@bot.tree.command(name="setup_dashboard", description="إرسال لوحة التحكم العملاقة")
 async def setup(interaction):
     if interaction.user.id == OWNER_ID:
-        embed = discord.Embed(title="PHOENIX SYSTEM" description="لوحة التحكم الكاملة بالسيرفر" color=0x2b2d31)
+        embed = discord.Embed(title="PHOENIX SYSTEM", description="لوحة التحكم الكاملة بالسيرفر", color=0x2b2d31)
         embed.set_image(url=DASHBOARD_IMAGE_URL)
         await interaction.channel.send(embed=embed, view=PhoenixMegaDashboard())
-        await interaction.response.send_message("تم التشغيل" ephemeral=True)
+        await interaction.response.send_message("تم التشغيل", ephemeral=True)
 
 if __name__ == '__main__':
     keep_alive()
