@@ -30,7 +30,7 @@ class MyBot(commands.Bot):
         if not self.auto_refresh_task.is_running():
             self.auto_refresh_task.start()
 
-    # نظام الترحيب
+    # 1. نظام الترحيب
     async def on_member_join(self, member):
         channel = self.get_channel(WELCOME_ROOM_ID)
         if channel:
@@ -48,7 +48,7 @@ class MyBot(commands.Bot):
             except:
                 await channel.send(welcome_text)
 
-    # إحصائيات السيرفر
+    # 2. إحصائيات السيرفر (كل 30 دقيقة)
     @tasks.loop(minutes=30)
     async def auto_refresh_task(self):
         for guild in self.guilds:
@@ -62,7 +62,7 @@ class MyBot(commands.Bot):
                 await guild.create_voice_channel(name=f"Members: {total}", category=category)
                 await guild.create_voice_channel(name=f"Online: {online}", category=category)
 
-    # ميزة النشر التلقائي عبر الصور (في القنوات المحددة)
+    # 3. ميزة النشر التلقائي عبر الصور (البديل المباشر لأمر نشر)
     async def on_message(self, message):
         if message.author.bot: return
         
@@ -71,23 +71,18 @@ class MyBot(commands.Bot):
                 if all(message.attachments[i].content_type.startswith('image') for i in range(2)):
                     msg = await message.channel.send("⏳ جاري المعالجة...")
                     try:
-                        # سحب الروابط مباشرة لضمان عدم حدوث خطأ في القراءة
                         av_url = message.attachments[0].url
                         bn_url = message.attachments[1].url
 
                         canvas = Editor(Canvas(size=(3188, 2160), color="#000000")) 
-                        
-                        # البنر
                         bn_img = await load_image_async(bn_url)
                         bn_res = Editor(bn_img).resize((3188, 1100))
                         canvas.paste(bn_res, (0, 0))
                         
-                        # الأفاتار
                         av_img = await load_image_async(av_url)
                         av_res = Editor(av_img).resize((900, 900)).circle_image()
                         canvas.paste(av_res, (100, 550))
                         
-                        # التيمبلت
                         canvas.paste(Editor("template.png"), (0, 0))
                         
                         file = discord.File(fp=canvas.image_bytes, filename="profile.png")
@@ -102,32 +97,37 @@ class MyBot(commands.Bot):
 
 bot = MyBot()
 
-# الأوامر الإدارية (مسح، قفل، فتح، حالة)
+# --- الأوامر الإدارية ---
 
+# 4. أمر مسح الرسائل
 @bot.tree.command(name="مسح")
 @app_commands.checks.has_permissions(manage_messages=True)
 async def clear(interaction: discord.Interaction, العدد: int):
     await interaction.channel.purge(limit=العدد)
     await interaction.response.send_message(f"🧹 تم مسح {العدد} رسالة", ephemeral=True)
 
+# 5. أمر قفل القناة
 @bot.tree.command(name="قفل_القناة")
 @app_commands.checks.has_permissions(manage_channels=True)
 async def lock(interaction: discord.Interaction):
     await interaction.channel.set_permissions(interaction.guild.default_role, send_messages=False)
     await interaction.response.send_message("🔒 تم قفل القناة")
 
+# 6. أمر فتح القناة
 @bot.tree.command(name="فتح_القناة")
 @app_commands.checks.has_permissions(manage_channels=True)
 async def unlock(interaction: discord.Interaction):
     await interaction.channel.set_permissions(interaction.guild.default_role, send_messages=True)
     await interaction.response.send_message("🔓 تم فتح القناة")
 
+# 7. أمر تغيير حالة البوت
 @bot.tree.command(name="الحالة")
 async def change_status(interaction: discord.Interaction, النص: str):
     if interaction.user.id == OWNER_ID:
         await bot.change_presence(activity=discord.Game(name=النص))
         await interaction.response.send_message(f"✅ تم تغيير الحالة", ephemeral=True)
 
+# نظام التحميل (الزر تحت الصور)
 class CloudDownloadView(discord.ui.View):
     def __init__(self, av_url, bn_url):
         super().__init__(timeout=None)
@@ -138,21 +138,6 @@ class CloudDownloadView(discord.ui.View):
         emb1 = discord.Embed().set_image(url=self.av_url)
         emb2 = discord.Embed().set_image(url=self.bn_url)
         await interaction.response.send_message(embeds=[emb1, emb2], ephemeral=True)
-
-# أمر النشر عبر الرابط (احتياطي)
-@bot.tree.command(name="نشر")
-async def post(interaction: discord.Interaction, الافتار: str, البنر: str):
-    await interaction.response.defer(ephemeral=True)
-    try:
-        canvas = Editor(Canvas(size=(3188, 2160), color="#000000")) 
-        canvas.paste(Editor(await load_image_async(البنر)).resize((3188, 1100)), (0, 0))
-        canvas.paste(Editor(await load_image_async(الافتار)).resize((900, 900)).circle_image(), (100, 550))
-        canvas.paste(Editor("template.png"), (0, 0))
-        file = discord.File(fp=canvas.image_bytes, filename="profile.png")
-        await interaction.channel.send(file=file, view=CloudDownloadView(الافتار, البنر))
-        await interaction.followup.send("Done", ephemeral=True)
-    except:
-        await interaction.followup.send("Error", ephemeral=True)
 
 if __name__ == '__main__':
     keep_alive()
