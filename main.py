@@ -51,25 +51,25 @@ class ChannelControlModal(discord.ui.Modal):
         try:
             target_channel = interaction.guild.get_channel(int(self.channel_id.value))
             if not target_channel:
-                return await interaction.response.send_message("لم أتمكن من العثور على هذا الروم" ephemeral=True)
+                return await interaction.response.send_message("لم أتمكن من العثور على هذا الروم", ephemeral=True)
             
             role = interaction.guild.default_role
             if self.action == "lock":
                 await target_channel.set_permissions(role, send_messages=False)
-                msg = f"تم قفل الروم {target_channel.mention} بنجاح"
+                msg = f"تم قفل الروم {target_channel.name} بنجاح"
             elif self.action == "unlock":
                 await target_channel.set_permissions(role, send_messages=True)
-                msg = f"تم فتح الروم {target_channel.mention} بنجاح"
+                msg = f"تم فتح الروم {target_channel.name} بنجاح"
             elif self.action == "hide":
                 await target_channel.set_permissions(role, view_channel=False)
                 msg = f"تم إخفاء الروم {target_channel.name} بنجاح"
             elif self.action == "show":
                 await target_channel.set_permissions(role, view_channel=True)
-                msg = f"تم إظهار الروم {target_channel.mention} بنجاح"
+                msg = f"تم إظهار الروم {target_channel.name} بنجاح"
             
             await interaction.response.send_message(msg, ephemeral=True)
         except ValueError:
-            await interaction.response.send_message("يرجى إدخال أرقام فقط" ephemeral=True)
+            await interaction.response.send_message("يرجى إدخال أرقام فقط", ephemeral=True)
 
 class PostModal(discord.ui.Modal):
     def __init__(self, cat):
