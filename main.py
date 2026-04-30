@@ -5,7 +5,7 @@ from flask import Flask
 from threading import Thread
 from easy_pil import Editor, load_image_async, Canvas
 
-# --- تشغيل Flask لإبقاء البوت حياً ---
+# كود إبقاء البوت شغال 24 ساعة
 app = Flask('')
 @app.route('/')
 def home(): return "Phoenix Rising System Active"
@@ -15,7 +15,7 @@ def keep_alive():
     t.daemon = True
     t.start()
 
-# --- إعدادات المعرفات ---
+# إعدادات المعرفات الأصلية
 WELCOME_ROOM_ID = 1347630031337160764
 CATEGORY_ID = 1497599277793284248 
 OWNER_ID = 1341796578742243338
@@ -29,7 +29,7 @@ class MyBot(commands.Bot):
         if not self.auto_refresh_task.is_running():
             self.auto_refresh_task.start()
 
-    # أمر الترحيب التلقائي
+    # أمر الترحيب التلقائي (بدون تغيير)
     async def on_member_join(self, member):
         channel = self.get_channel(WELCOME_ROOM_ID)
         if channel:
@@ -48,7 +48,7 @@ class MyBot(commands.Bot):
                 print(f"Error drawing image: {e}")
                 await channel.send(welcome_text)
 
-    # تحديث إحصائيات الرومات الصوتية
+    # تحديث إحصائيات السيرفر (بدون تغيير)
     @tasks.loop(minutes=30)
     async def auto_refresh_task(self):
         for guild in self.guilds:
@@ -67,7 +67,7 @@ class MyBot(commands.Bot):
 
 bot = MyBot()
 
-# --- الأوامر الإدارية كاملة ---
+# الأوامر الإدارية كاملة (بدون حذف أي أمر)
 
 @bot.tree.command(name="مسح", description="مسح الرسائل")
 @app_commands.checks.has_permissions(manage_messages=True)
@@ -93,8 +93,6 @@ async def change_status(interaction: discord.Interaction, النص: str):
         await bot.change_presence(activity=discord.Game(name=النص))
         await interaction.response.send_message(f"✅ تم تغيير الحالة إلى: {النص}", ephemeral=True)
 
-# --- نظام النشر الاحترافي بالطبقات ---
-
 class CloudDownloadView(discord.ui.View):
     def __init__(self, av_url, bn_url):
         super().__init__(timeout=None)
@@ -107,28 +105,28 @@ class CloudDownloadView(discord.ui.View):
         emb2 = discord.Embed().set_image(url=self.bn_url)
         await interaction.response.send_message(embeds=[emb1, emb2], ephemeral=True)
 
-@bot.tree.command(name="نشر", description="نشر بروفايل احترافي")
+# نظام النشر الاحترافي (الطبقات لضبط الانحناء وعلامة DND)
+@bot.tree.command(name="نشر", description="نشر بروفايل")
 async def post(interaction: discord.Interaction, الافتار: str, البنر: str):
     if interaction.user.id == OWNER_ID or interaction.user.guild_permissions.manage_messages:
         await interaction.response.defer(ephemeral=True)
         try:
-            # 1. إنشاء خلفية سوداء بمقاس التيمبلت (3188x2160)
+            # إنشاء لوحة أساسية سوداء
             canvas = Editor(Canvas(size=(3188, 2160), color="#000000")) 
             
-            # 2. وضع البنر في الطبقة السفلية
+            # الطبقة 1: البنر (في الخلف)
             bn_img = await load_image_async(البنر)
             bn_res = Editor(bn_img).resize((3188, 1100))
             canvas.paste(bn_res, (0, 0))
             
-            # 3. وضع الأفاتار (تحت التيمبلت لضمان الانحناء)
+            # الطبقة 2: الأفاتار (تحت التيمبلت) لضمان الانحناء
             av_img = await load_image_async(الافتار)
-            # مقاس 900x900 لضمان تغطية فتحة التيمبلت بالكامل
             av_res = Editor(av_img).resize((900, 900)).circle_image()
             canvas.paste(av_res, (100, 550))
             
-            # 4. وضع التيمبلت المفرغ فوق الصور (كطبقة أخيرة)
-            # التيمبلت هو اللي بيعطيك شكل التقويسة للبنر وعلامة DND فوق الأفاتار
-            base = Editor("template.png") 
+            # الطبقة 3: التيمبلت (فوق) ليعطي شكل الـ DND وانحناء البنر
+            # تم ضبط الاسم ليتوافق مع الملف في مجلدك
+            base = Editor("template.jpg") 
             canvas.paste(base, (0, 0))
             
             file = discord.File(fp=canvas.image_bytes, filename="profile.png")
