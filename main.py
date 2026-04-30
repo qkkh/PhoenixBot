@@ -53,18 +53,24 @@ class MyBot(commands.Bot):
         if not self.auto_refresh_task.is_running():
             self.auto_refresh_task.start()
 
-    # نظام الترحيب الأصلي
+    # نظام الترحيب المعدل بالتنسيق الجديد
     async def on_member_join(self, member):
         channel = self.get_channel(WELCOME_ROOM_ID)
         if channel:
+            welcome_text = (
+                f"_'Have fun in **__PhoenixRising__**_\n"
+                f"     _'User: {member.mention}_<a:Via1:1378238620418183188>"
+            )
             try:
                 background = Editor("welcome.png")
                 avatar_image = await load_image_async(member.display_avatar.url)
                 avatar = Editor(avatar_image).resize((170, 170)).circle_image()
                 background.paste(avatar, (52, 72)) 
                 file = discord.File(fp=background.image_bytes, filename="welcome_card.png")
-                await channel.send(content=f"Have fun in PhoenixRising User {member.mention}", file=file)
-            except: pass
+                await channel.send(content=welcome_text, file=file)
+            except Exception as e:
+                print(f"Error: {e}")
+                await channel.send(content=welcome_text)
 
     # نظام الإحصائيات التلقائي
     @tasks.loop(minutes=30)
