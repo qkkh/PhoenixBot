@@ -6,27 +6,28 @@ from threading import Thread
 from easy_pil import Editor, load_image_async, Canvas
 from PIL import Image
 
-# تشغيل السيرفر لضمان بقاء البوت شغال 24 ساعة
 app = Flask('')
 @app.route('/')
-def home(): return "Phoenix Rising System Active"
+def home(): return "Phoenix Rising Active"
 def run(): app.run(host='0.0.0.0', port=8080)
 def keep_alive():
     t = Thread(target=run)
     t.daemon = True
     t.start()
 
-# الإعدادات الخاصة بك
 WELCOME_ROOM_ID = 1347630031337160764
 CATEGORY_ID = 1497599277793284248 
 OWNER_ID = 1341796578742243338
 
-# وظيفة تحميل الصور وتخزينها لتجنب الروابط المنتهية
 async def download_image(url):
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url) as resp:
-            if resp.status == 200:
-                return await resp.read()
+    headers = {'User-Agent': 'Mozilla/5.0'}
+    async with aiohttp.ClientSession(headers=headers) as session:
+        try:
+            async with session.get(url, timeout=15) as resp:
+                if resp.status == 200:
+                    return await resp.read()
+        except:
+            return None
     return None
 
 class CloudDownloadView(discord.ui.View):
@@ -37,12 +38,26 @@ class CloudDownloadView(discord.ui.View):
 
     @discord.ui.button(label="", style=discord.ButtonStyle.secondary, emoji="<:download:1286653105878077450>")
     async def download(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # أهم تعديل: نرد على التفاعل فوراً عشان ما يفشل
         await interaction.response.defer(ephemeral=True)
-        file1 = discord.File(io.BytesIO(self.av_data), filename="avatar.png")
-        file2 = discord.File(io.BytesIO(self.bn_data), filename="banner.png")
-        embed1 = discord.Embed(color=0x2b2d31).set_image(url="attachment://avatar.png")
-        embed2 = discord.Embed(color=0x2b2d31).set_image(url="attachment://banner.png")
-        await interaction.followup.send(embeds=[embed1, embed2], files=[file1, file2], ephemeral=True)
+        
+        try:
+            files = []
+            embeds = []
+            
+            if self.av_data:
+                file1 = discord.File(io.BytesIO(self.av_data), filename="avatar.png")
+                files.append(file1)
+                embeds.append(discord.Embed(color=0x2b2d31).set_image(url="attachment://avatar.png"))
+            
+            if self.bn_data:
+                file2 = discord.File(io.BytesIO(self.bn_data), filename="banner.png")
+                files.append(file2)
+                embeds.append(discord.Embed(color=0x2b2d31).set_image(url="attachment://banner.png"))
+            
+            await interaction.followup.send(embeds=embeds, files=files, ephemeral=True)
+        except:
+            await interaction.followup.send("حدث بطء في الشبكة حاول مجدداً", ephemeral=True)
 
 class MyBot(commands.Bot):
     def __init__(self):
@@ -53,7 +68,6 @@ class MyBot(commands.Bot):
         if not self.auto_refresh_task.is_running():
             self.auto_refresh_task.start()
 
-    # نظام الترحيب المعدل بالتنسيق الجديد
     async def on_member_join(self, member):
         channel = self.get_channel(WELCOME_ROOM_ID)
         if channel:
@@ -63,16 +77,15 @@ class MyBot(commands.Bot):
             )
             try:
                 background = Editor("welcome.png")
-                avatar_image = await load_image_async(member.display_avatar.url)
-                avatar = Editor(avatar_image).resize((170, 170)).circle_image()
-                background.paste(avatar, (52, 72)) 
+                av_bytes = await download_image(str(member.display_avatar.url))
+                if av_bytes:
+                    avatar = Editor(Image.open(io.BytesIO(av_bytes))).resize((170, 170)).circle_image()
+                    background.paste(avatar, (52, 72)) 
                 file = discord.File(fp=background.image_bytes, filename="welcome_card.png")
                 await channel.send(content=welcome_text, file=file)
-            except Exception as e:
-                print(f"Error: {e}")
+            except:
                 await channel.send(content=welcome_text)
 
-    # نظام الإحصائيات التلقائي
     @tasks.loop(minutes=30)
     async def auto_refresh_task(self):
         for guild in self.guilds:
@@ -88,38 +101,42 @@ class MyBot(commands.Bot):
 
 bot = MyBot()
 
-# أمر النشر بالنمط الجديد (Embed)
 @bot.tree.command(name="نشر", description="نشر بروفايل")
 async def post(interaction: discord.Interaction, الافتار: str, البنر: str):
     if interaction.user.id == OWNER_ID or interaction.user.guild_permissions.manage_messages:
+        # تأخير الرد عشان البوت ياخذ راحته في المعالجة
         await interaction.response.defer(ephemeral=True)
         try:
             av_data = await download_image(الافتار)
             bn_data = await download_image(البنر)
+            
             if not av_data or not bn_data:
-                return await interaction.followup.send("تعذر سحب الصور", ephemeral=True)
+                return await interaction.followup.send("تأكد من روابط الصور", ephemeral=True)
 
             av_pil = Image.open(io.BytesIO(av_data))
             bn_pil = Image.open(io.BytesIO(bn_data))
+            
             canvas = Editor(Canvas(size=(3188, 2160), color="#000000")) 
             canvas.paste(Editor(bn_pil).resize((3188, 1100)), (0, 0))
             canvas.paste(Editor(av_pil).resize((900, 900)).circle_image(), (100, 550))
             canvas.paste(Editor("template.png"), (0, 0))
             
+            # تقليل جودة المعاينة قليلاً لتسريع الإرسال ومنع الـ Fail
             image_binary = io.BytesIO()
-            canvas.image.save(image_binary, "PNG")
+            canvas.image.save(image_binary, "PNG", optimize=True)
             image_binary.seek(0)
-            file = discord.File(fp=image_binary, filename="profile.png")
             
+            file = discord.File(fp=image_binary, filename="profile.png")
             embed = discord.Embed(color=0x2b2d31)
             embed.set_image(url="attachment://profile.png")
             
+            # إرسال النتيجة في القناة
             await interaction.channel.send(embed=embed, file=file, view=CloudDownloadView(av_data, bn_data))
-            await interaction.followup.send("تم النشر", ephemeral=True)
+            # تأكيد الإرسال للمستخدم
+            await interaction.followup.send("تم النشر بنجاح", ephemeral=True)
         except Exception as e:
-            await interaction.followup.send(f"خطأ {e}", ephemeral=True)
+            await interaction.followup.send("حدث خطأ حاول مرة اخرى", ephemeral=True)
 
-# الأوامر الإدارية القديمة
 @bot.tree.command(name="مسح")
 @app_commands.checks.has_permissions(manage_messages=True)
 async def clear(interaction: discord.Interaction, العدد: int):
