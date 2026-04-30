@@ -67,8 +67,51 @@ class MyBot(commands.Bot):
 
 bot = MyBot()
 
-# الأوامر الإدارية
+# --- تعديل نظام التحميل ليعرض الصور بشكل Embed مرتب ---
+class CloudDownloadView(discord.ui.View):
+    def __init__(self, av_url, bn_url):
+        super().__init__(timeout=None)
+        self.av_url = av_url
+        self.bn_url = bn_url
 
+    @discord.ui.button(label="", style=discord.ButtonStyle.secondary, emoji="<:download:1286653105878077450>")
+    async def download(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # هنا التعديل اللي يخلي الصورة تطلع واضحة بدل المربعات
+        embed_av = discord.Embed(color=0x2b2d31)
+        embed_av.set_image(url=self.av_url)
+        
+        embed_bn = discord.Embed(color=0x2b2d31)
+        embed_bn.set_image(url=self.bn_url)
+        
+        await interaction.response.send_message(embeds=[embed_av, embed_bn], ephemeral=True)
+
+# نظام النشر الاحترافي المعدل
+@bot.tree.command(name="نشر", description="نشر بروفايل")
+async def post(interaction: discord.Interaction, الافتار: str, البنر: str):
+    if interaction.user.id == OWNER_ID or interaction.user.guild_permissions.manage_messages:
+        await interaction.response.defer(ephemeral=True)
+        try:
+            canvas = Editor(Canvas(size=(3188, 2160), color="#000000")) 
+            
+            bn_img = await load_image_async(البنر)
+            bn_res = Editor(bn_img).resize((3188, 1100))
+            canvas.paste(bn_res, (0, 0))
+            
+            av_img = await load_image_async(الافتار)
+            av_res = Editor(av_img).resize((900, 900)).circle_image()
+            canvas.paste(av_res, (100, 550))
+            
+            base = Editor("template.png") 
+            canvas.paste(base, (0, 0))
+            
+            file = discord.File(fp=canvas.image_bytes, filename="profile.png")
+            # نرسل النتيجة في القناة مع زر التحميل المعدل
+            await interaction.channel.send(file=file, view=CloudDownloadView(الافتار, البنر))
+            await interaction.followup.send("Done", ephemeral=True)
+        except Exception as e:
+            await interaction.followup.send(f"Error: {e}", ephemeral=True)
+
+# الأوامر الإدارية المستمرة
 @bot.tree.command(name="مسح", description="مسح الرسائل")
 @app_commands.checks.has_permissions(manage_messages=True)
 async def clear(interaction: discord.Interaction, العدد: int):
@@ -92,48 +135,6 @@ async def change_status(interaction: discord.Interaction, النص: str):
     if interaction.user.id == OWNER_ID:
         await bot.change_presence(activity=discord.Game(name=النص))
         await interaction.response.send_message(f"✅ تم تغيير الحالة إلى: {النص}", ephemeral=True)
-
-class CloudDownloadView(discord.ui.View):
-    def __init__(self, av_url, bn_url):
-        super().__init__(timeout=None)
-        self.av_url = av_url
-        self.bn_url = bn_url
-
-    @discord.ui.button(label="", style=discord.ButtonStyle.secondary, emoji="<:download:1286653105878077450>")
-    async def download(self, interaction: discord.Interaction, button: discord.ui.Button):
-        emb1 = discord.Embed().set_image(url=self.av_url)
-        emb2 = discord.Embed().set_image(url=self.bn_url)
-        await interaction.response.send_message(embeds=[emb1, emb2], ephemeral=True)
-
-# نظام النشر الاحترافي المعدل ليعمل مع الصورة المفرغة PNG
-@bot.tree.command(name="نشر", description="نشر بروفايل")
-async def post(interaction: discord.Interaction, الافتار: str, البنر: str):
-    if interaction.user.id == OWNER_ID or interaction.user.guild_permissions.manage_messages:
-        await interaction.response.defer(ephemeral=True)
-        try:
-            # إنشاء لوحة أساسية سوداء (مقاس التيمبلت الكبير)
-            canvas = Editor(Canvas(size=(3188, 2160), color="#000000")) 
-            
-            # الطبقة 1: البنر (في الخلف)
-            bn_img = await load_image_async(البنر)
-            bn_res = Editor(bn_img).resize((3188, 1100))
-            canvas.paste(bn_res, (0, 0))
-            
-            # الطبقة 2: الأفاتار (يمرر من تحت فتحة التيمبلت)
-            av_img = await load_image_async(الافتار)
-            av_res = Editor(av_img).resize((900, 900)).circle_image()
-            canvas.paste(av_res, (100, 550))
-            
-            # الطبقة 3: التيمبلت المفرغ PNG (فوق الكل ليعطي انحناء البنر وعلامة DND)
-            # تم تغيير الامتداد هنا لـ .png ليتوافق مع شغلك في Photopea
-            base = Editor("template.png") 
-            canvas.paste(base, (0, 0))
-            
-            file = discord.File(fp=canvas.image_bytes, filename="profile.png")
-            await interaction.channel.send(file=file, view=CloudDownloadView(الافتار, البنر))
-            await interaction.followup.send("Done", ephemeral=True)
-        except Exception as e:
-            await interaction.followup.send(f"Error: {e}", ephemeral=True)
 
 if __name__ == '__main__':
     keep_alive()
