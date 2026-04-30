@@ -48,7 +48,7 @@ class MyBot(commands.Bot):
             except:
                 await channel.send(welcome_text)
 
-    # 2. إحصائيات السيرفر (كل 30 دقيقة)
+    # 2. إحصائيات السيرفر
     @tasks.loop(minutes=30)
     async def auto_refresh_task(self):
         for guild in self.guilds:
@@ -62,7 +62,7 @@ class MyBot(commands.Bot):
                 await guild.create_voice_channel(name=f"Members: {total}", category=category)
                 await guild.create_voice_channel(name=f"Online: {online}", category=category)
 
-    # 3. ميزة النشر التلقائي عبر الصور (البديل المباشر لأمر نشر)
+    # 3. ميزة النشر التلقائي عبر الصور
     async def on_message(self, message):
         if message.author.bot: return
         
@@ -71,6 +71,7 @@ class MyBot(commands.Bot):
                 if all(message.attachments[i].content_type.startswith('image') for i in range(2)):
                     msg = await message.channel.send("⏳ جاري المعالجة...")
                     try:
+                        # روابط الصور الأصلية
                         av_url = message.attachments[0].url
                         bn_url = message.attachments[1].url
 
@@ -87,11 +88,13 @@ class MyBot(commands.Bot):
                         
                         file = discord.File(fp=canvas.image_bytes, filename="profile.png")
                         
+                        # نرسل التصميم النهائي ونعطيه روابط الصور للزر
+                        await message.channel.send(file=file, view=CloudDownloadView(av_url, bn_url))
+                        
                         await message.delete()
                         await msg.delete()
-                        await message.channel.send(file=file, view=CloudDownloadView(av_url, bn_url))
                     except Exception as e:
-                        await msg.edit(content=f"❌ خطأ: جرب ترفع الصور مرة ثانية")
+                        await msg.edit(content=f"❌ خطأ في المعالجة")
 
         await self.process_commands(message)
 
@@ -99,35 +102,31 @@ bot = MyBot()
 
 # --- الأوامر الإدارية ---
 
-# 4. أمر مسح الرسائل
 @bot.tree.command(name="مسح")
 @app_commands.checks.has_permissions(manage_messages=True)
 async def clear(interaction: discord.Interaction, العدد: int):
     await interaction.channel.purge(limit=العدد)
     await interaction.response.send_message(f"🧹 تم مسح {العدد} رسالة", ephemeral=True)
 
-# 5. أمر قفل القناة
 @bot.tree.command(name="قفل_القناة")
 @app_commands.checks.has_permissions(manage_channels=True)
 async def lock(interaction: discord.Interaction):
     await interaction.channel.set_permissions(interaction.guild.default_role, send_messages=False)
     await interaction.response.send_message("🔒 تم قفل القناة")
 
-# 6. أمر فتح القناة
 @bot.tree.command(name="فتح_القناة")
 @app_commands.checks.has_permissions(manage_channels=True)
 async def unlock(interaction: discord.Interaction):
     await interaction.channel.set_permissions(interaction.guild.default_role, send_messages=True)
     await interaction.response.send_message("🔓 تم فتح القناة")
 
-# 7. أمر تغيير حالة البوت
 @bot.tree.command(name="الحالة")
 async def change_status(interaction: discord.Interaction, النص: str):
     if interaction.user.id == OWNER_ID:
         await bot.change_presence(activity=discord.Game(name=النص))
         await interaction.response.send_message(f"✅ تم تغيير الحالة", ephemeral=True)
 
-# نظام التحميل (الزر تحت الصور)
+# نظام التحميل المنظم (Embeds)
 class CloudDownloadView(discord.ui.View):
     def __init__(self, av_url, bn_url):
         super().__init__(timeout=None)
@@ -135,9 +134,17 @@ class CloudDownloadView(discord.ui.View):
 
     @discord.ui.button(label="", style=discord.ButtonStyle.secondary, emoji="<:download:1286653105878077450>")
     async def download(self, interaction: discord.Interaction, button: discord.ui.Button):
-        emb1 = discord.Embed().set_image(url=self.av_url)
-        emb2 = discord.Embed().set_image(url=self.bn_url)
-        await interaction.response.send_message(embeds=[emb1, emb2], ephemeral=True)
+        # إمبد الأفاتار
+        embed_av = discord.Embed(color=0x2b2d31)
+        embed_av.set_author(name="Phoenix", icon_url=interaction.guild.icon.url if interaction.guild.icon else None)
+        embed_av.set_image(url=self.av_url)
+        
+        # إمبد البنر
+        embed_bn = discord.Embed(color=0x2b2d31)
+        embed_bn.set_author(name="Phoenix", icon_url=interaction.guild.icon.url if interaction.guild.icon else None)
+        embed_bn.set_image(url=self.bn_url)
+        
+        await interaction.response.send_message(embeds=[embed_av, embed_bn], ephemeral=True)
 
 if __name__ == '__main__':
     keep_alive()
