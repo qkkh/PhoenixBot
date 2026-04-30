@@ -38,7 +38,7 @@ class CloudDownloadView(discord.ui.View):
 
     @discord.ui.button(label="", style=discord.ButtonStyle.secondary, emoji="<:download:1286653105878077450>")
     async def download(self, interaction: discord.Interaction, button: discord.ui.Button):
-        # أهم تعديل: نرد على التفاعل فوراً عشان ما يفشل
+        # تم إبقاء الـ defer هنا فقط للزر لأن تحميل الملفات داخل الأزرار يحتاج وقت إضافي دائماً
         await interaction.response.defer(ephemeral=True)
         
         try:
@@ -104,14 +104,13 @@ bot = MyBot()
 @bot.tree.command(name="نشر", description="نشر بروفايل")
 async def post(interaction: discord.Interaction, الافتار: str, البنر: str):
     if interaction.user.id == OWNER_ID or interaction.user.guild_permissions.manage_messages:
-        # تأخير الرد عشان البوت ياخذ راحته في المعالجة
-        await interaction.response.defer(ephemeral=True)
+        # تم حذف الـ defer من هنا بناءً على طلبك
         try:
             av_data = await download_image(الافتار)
             bn_data = await download_image(البنر)
             
             if not av_data or not bn_data:
-                return await interaction.followup.send("تأكد من روابط الصور", ephemeral=True)
+                return await interaction.response.send_message("تأكد من روابط الصور", ephemeral=True)
 
             av_pil = Image.open(io.BytesIO(av_data))
             bn_pil = Image.open(io.BytesIO(bn_data))
@@ -121,7 +120,6 @@ async def post(interaction: discord.Interaction, الافتار: str, البنر
             canvas.paste(Editor(av_pil).resize((900, 900)).circle_image(), (100, 550))
             canvas.paste(Editor("template.png"), (0, 0))
             
-            # تقليل جودة المعاينة قليلاً لتسريع الإرسال ومنع الـ Fail
             image_binary = io.BytesIO()
             canvas.image.save(image_binary, "PNG", optimize=True)
             image_binary.seek(0)
@@ -130,12 +128,13 @@ async def post(interaction: discord.Interaction, الافتار: str, البنر
             embed = discord.Embed(color=0x2b2d31)
             embed.set_image(url="attachment://profile.png")
             
-            # إرسال النتيجة في القناة
+            # إرسال النتيجة كاستجابة مباشرة (response)
             await interaction.channel.send(embed=embed, file=file, view=CloudDownloadView(av_data, bn_data))
-            # تأكيد الإرسال للمستخدم
-            await interaction.followup.send("تم النشر بنجاح", ephemeral=True)
+            await interaction.response.send_message("تم النشر بنجاح", ephemeral=True)
         except Exception as e:
-            await interaction.followup.send("حدث خطأ حاول مرة اخرى", ephemeral=True)
+            # استخدام الاستجابة المباشرة في حالة الخطأ أيضاً
+            if not interaction.response.is_done():
+                await interaction.response.send_message("حدث خطأ حاول مرة اخرى", ephemeral=True)
 
 @bot.tree.command(name="مسح")
 @app_commands.checks.has_permissions(manage_messages=True)
