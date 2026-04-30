@@ -5,7 +5,7 @@ from flask import Flask
 from threading import Thread
 from easy_pil import Editor, load_image_async, Canvas
 
-# كود الاستمرارية
+# كود الاستمرارية 24 ساعة
 app = Flask('')
 @app.route('/')
 def home(): return "Phoenix Rising System Active"
@@ -15,32 +15,10 @@ def keep_alive():
     t.daemon = True
     t.start()
 
+# إعدادات المعرفات الأصلية
 WELCOME_ROOM_ID = 1347630031337160764
 CATEGORY_ID = 1497599277793284248 
 OWNER_ID = 1341796578742243338
-ALLOWED_CHANNELS = [1378251863098392596, 1378251900348141589, 1378251920237395998]
-
-# نظام التحميل المنظم (Embeds) - تم تحسينه لمنع فشل التفاعل
-class CloudDownloadView(discord.ui.View):
-    def __init__(self, av_url, bn_url):
-        super().__init__(timeout=None) # يخلي الزر شغال للأبد
-        self.av_url, self.bn_url = av_url, bn_url
-
-    @discord.ui.button(label="", style=discord.ButtonStyle.secondary, emoji="<:download:1286653105878077450>")
-    async def download(self, interaction: discord.Interaction, button: discord.ui.Button):
-        try:
-            embed_av = discord.Embed(color=0x2b2d31)
-            embed_av.set_author(name="Phoenix", icon_url=interaction.guild.icon.url if interaction.guild.icon else None)
-            embed_av.set_image(url=self.av_url)
-            
-            embed_bn = discord.Embed(color=0x2b2d31)
-            embed_bn.set_author(name="Phoenix", icon_url=interaction.guild.icon.url if interaction.guild.icon else None)
-            embed_bn.set_image(url=self.bn_url)
-            
-            await interaction.response.send_message(embeds=[embed_av, embed_bn], ephemeral=True)
-        except:
-            # إذا فشل الإمبد يرسل روابط نصية كخيار احتياطي أخير
-            await interaction.response.send_message(f"Avatar: {self.av_url}\nBanner: {self.bn_url}", ephemeral=True)
 
 class MyBot(commands.Bot):
     def __init__(self):
@@ -51,6 +29,7 @@ class MyBot(commands.Bot):
         if not self.auto_refresh_task.is_running():
             self.auto_refresh_task.start()
 
+    # نظام الترحيب
     async def on_member_join(self, member):
         channel = self.get_channel(WELCOME_ROOM_ID)
         if channel:
@@ -63,6 +42,7 @@ class MyBot(commands.Bot):
                 await channel.send(content=f"_'Have fun in **__PhoenixRising__**_\n     _'User: {member.mention}_<a:Via1:1378238620418183188>", file=file)
             except: pass
 
+    # إحصائيات السيرفر
     @tasks.loop(minutes=30)
     async def auto_refresh_task(self):
         for guild in self.guilds:
@@ -76,29 +56,48 @@ class MyBot(commands.Bot):
                 await guild.create_voice_channel(name=f"Members: {total}", category=category)
                 await guild.create_voice_channel(name=f"Online: {online}", category=category)
 
-    async def on_message(self, message):
-        if message.author.bot: return
-        if message.channel.id in ALLOWED_CHANNELS and len(message.attachments) == 2:
-            if all(message.attachments[i].content_type.startswith('image') for i in range(2)):
-                msg = await message.channel.send("⏳ جاري المعالجة...")
-                try:
-                    av_url = message.attachments[0].url
-                    bn_url = message.attachments[1].url
-                    canvas = Editor(Canvas(size=(3188, 2160), color="#000000")) 
-                    canvas.paste(Editor(await load_image_async(bn_url)).resize((3188, 1100)), (0, 0))
-                    canvas.paste(Editor(await load_image_async(av_url)).resize((900, 900)).circle_image(), (100, 550))
-                    canvas.paste(Editor("template.png"), (0, 0))
-                    
-                    file = discord.File(fp=canvas.image_bytes, filename="profile.png")
-                    await message.channel.send(file=file, view=CloudDownloadView(av_url, bn_url))
-                    await message.delete()
-                    await msg.delete()
-                except:
-                    await msg.edit(content="❌ حدث خطأ، تأكد من جودة الصور.")
-        await self.process_commands(message)
-
 bot = MyBot()
 
+# نظام التحميل المنظم (الإمبد الفخم)
+class CloudDownloadView(discord.ui.View):
+    def __init__(self, av_url, bn_url):
+        super().__init__(timeout=None)
+        self.av_url, self.bn_url = av_url, bn_url
+
+    @discord.ui.button(label="", style=discord.ButtonStyle.secondary, emoji="<:download:1286653105878077450>")
+    async def download(self, interaction: discord.Interaction, button: discord.ui.Button):
+        embed_av = discord.Embed(color=0x2b2d31)
+        embed_av.set_author(name="Phoenix", icon_url=interaction.guild.icon.url if interaction.guild.icon else None)
+        embed_av.set_image(url=self.av_url)
+        
+        embed_bn = discord.Embed(color=0x2b2d31)
+        embed_bn.set_author(name="Phoenix", icon_url=interaction.guild.icon.url if interaction.guild.icon else None)
+        embed_bn.set_image(url=self.bn_url)
+        
+        await interaction.response.send_message(embeds=[embed_av, embed_bn], ephemeral=True)
+
+# أمر النشر الرسمي
+@bot.tree.command(name="نشر", description="نشر افتار وبنر عبر الروابط")
+@app_commands.describe(الافتار="رابط صورة الافتار", البنر="رابط صورة البنر")
+async def post(interaction: discord.Interaction, الافتار: str, البنر: str):
+    await interaction.response.defer()
+    try:
+        canvas = Editor(Canvas(size=(3188, 2160), color="#000000")) 
+        # البنر
+        bn_img = await load_image_async(البنر)
+        canvas.paste(Editor(bn_img).resize((3188, 1100)), (0, 0))
+        # الافتار
+        av_img = await load_image_async(الافتار)
+        canvas.paste(Editor(av_img).resize((900, 900)).circle_image(), (100, 550))
+        # التيمبلت
+        canvas.paste(Editor("template.png"), (0, 0))
+        
+        file = discord.File(fp=canvas.image_bytes, filename="profile.png")
+        await interaction.followup.send(file=file, view=CloudDownloadView(الافتار, البنر))
+    except Exception as e:
+        await interaction.followup.send("❌ فشل التصميم تأكد من صحة الروابط", ephemeral=True)
+
+# الأوامر الإدارية
 @bot.tree.command(name="مسح")
 @app_commands.checks.has_permissions(manage_messages=True)
 async def clear(interaction: discord.Interaction, العدد: int):
