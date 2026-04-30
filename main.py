@@ -3,25 +3,25 @@ from discord.ext import commands, tasks
 from discord import app_commands
 from flask import Flask
 from threading import Thread
-from easy_pil import Editor, load_image_async, Canvas
+from easy_pil import Editor, Canvas
 from PIL import Image
 
-# نظام البقاء متصلاً
+# تشغيل البوت 24 ساعة
 app = Flask('')
 @app.route('/')
-def home(): return "Phoenix Rising Active"
+def home(): return "Phoenix Super Active"
 def run(): app.run(host='0.0.0.0', port=8080)
 def keep_alive():
     t = Thread(target=run)
     t.daemon = True
     t.start()
 
-# الإعدادات الأصلية حقك
+# الإعدادات الأساسية
 WELCOME_ROOM_ID = 1347630031337160764
 CATEGORY_ID = 1497599277793284248 
 OWNER_ID = 1341796578742243338
+DASHBOARD_IMAGE_URL = "https://p16-capcut-va.ibyteimg.com/tos-alisg-v-643501-sg/o0fIAfD7fEge8beAA7fInQAEn9EIzlDAnfC2f6~tplv-nh76y3g2ee-f5.webp"
 
-# رومات الأرشيف
 ARCHIVE_CHANNELS = {
     "شباب": 1378251863098392596,
     "بنات": 1378251900348141589,
@@ -37,87 +37,85 @@ async def download_image(url):
         except: return None
     return None
 
-# --- زر التحميل (Persistent) ---
-class CloudDownloadView(discord.ui.View):
-    def __init__(self, av_data=None, bn_data=None):
-        super().__init__(timeout=None)
-        self.av_data = av_data
-        self.bn_data = bn_data
-
-    @discord.ui.button(label="", style=discord.ButtonStyle.secondary, emoji="<:download:1286653105878077450>", custom_id="dl_fixed")
-    async def download(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.defer(ephemeral=True)
-        try:
-            files, embeds = [], []
-            if self.av_data:
-                files.append(discord.File(io.BytesIO(self.av_data), filename="avatar.png"))
-                embeds.append(discord.Embed(color=0x2b2d31).set_image(url="attachment://avatar.png"))
-            if self.bn_data:
-                files.append(discord.File(io.BytesIO(self.bn_data), filename="banner.png"))
-                embeds.append(discord.Embed(color=0x2b2d31).set_image(url="attachment://banner.png"))
-            await interaction.followup.send(embeds=embeds, files=files, ephemeral=True)
-        except: await interaction.followup.send("خطأ بالتحميل", ephemeral=True)
-
-# --- نافذة النشر ---
+# نافذة النشر والأرشفة
 class PostModal(discord.ui.Modal):
-    def __init__(self, cat_name):
-        super().__init__(title=f"نشر في {cat_name}")
-        self.cat_name = cat_name
-    av_url = discord.ui.TextInput(label="رابط الأفتار", required=True)
-    bn_url = discord.ui.TextInput(label="رابط البنر", required=True)
+    def __init__(self, cat):
+        super().__init__(title=f"نشر في {cat}")
+        self.cat = cat
+    av = discord.ui.TextInput(label="رابط الأفتار", required=True)
+    bn = discord.ui.TextInput(label="رابط البنر", required=True)
 
-    async def on_submit(self, interaction: discord.Interaction):
+    async def on_submit(self, interaction):
         await interaction.response.defer(ephemeral=True)
-        av, bn = await download_image(self.av_url.value), await download_image(self.bn_url.value)
-        if not av or not bn: return await interaction.followup.send("روابط غلط", ephemeral=True)
-        chan = interaction.guild.get_channel(ARCHIVE_CHANNELS.get(self.cat_name))
-        try:
-            canvas = Editor(Canvas(size=(3188, 2160), color="#000000"))
-            canvas.paste(Editor(Image.open(io.BytesIO(bn))).resize((3188, 1100)), (0, 0))
-            canvas.paste(Editor(Image.open(io.BytesIO(av))).resize((900, 900)).circle_image(), (100, 550))
-            if os.path.exists("template.png"): canvas.paste(Editor("template.png"), (0, 0))
-            img_bin = io.BytesIO()
-            canvas.image.save(img_bin, "PNG")
-            img_bin.seek(0)
-            embed = discord.Embed(description=f"بواسطة: {interaction.user.mention}", color=0x2b2d31).set_image(url="attachment://p.png")
-            await chan.send(embed=embed, file=discord.File(fp=img_bin, filename="p.png"), view=CloudDownloadView(av, bn))
-            await interaction.followup.send("تم النشر", ephemeral=True)
-        except: await interaction.followup.send("خطأ برمجـي", ephemeral=True)
+        av_d, bn_d = await download_image(self.av.value), await download_image(self.bn.value)
+        chan = interaction.guild.get_channel(ARCHIVE_CHANNELS.get(self.cat))
+        canvas = Editor(Canvas(size=(3188, 2160), color="#000000"))
+        canvas.paste(Editor(Image.open(io.BytesIO(bn_d))).resize((3188, 1100)), (0, 0))
+        canvas.paste(Editor(Image.open(io.BytesIO(av_d))).resize((900, 900)).circle_image(), (100, 550))
+        if os.path.exists("template.png"): canvas.paste(Editor("template.png"), (0, 0))
+        img_bin = io.BytesIO()
+        canvas.image.save(img_bin, "PNG")
+        img_bin.seek(0)
+        await chan.send(file=discord.File(fp=img_bin, filename="p.png"))
+        await interaction.followup.send("تم الأرشفة بنجاح" ephemeral=True)
 
-# --- داشبرد التحكم الكامل ---
-class MasterDashboard(discord.ui.View):
+# الداشبرد المتكامل (النسخة العملاقة)
+class PhoenixMegaDashboard(discord.ui.View):
     def __init__(self): super().__init__(timeout=None)
 
-    @discord.ui.select(placeholder="اختر قسم النشر...", custom_id="dash_sel", options=[
-        discord.SelectOption(label="شباب", value="شباب", emoji="👦"),
-        discord.SelectOption(label="بنات", value="بنات", emoji="👧"),
-        discord.SelectOption(label="انمي", value="انمي", emoji="⛩️")
+    # 1. قائمة النشر والأرشفة
+    @discord.ui.select(placeholder="📂 إدارة الأرشيف والنشر", custom_id="m_post", options=[
+        discord.SelectOption(label="نشر شباب", value="شباب" emoji="👦"),
+        discord.SelectOption(label="نشر بنات", value="بنات" emoji="👧"),
+        discord.SelectOption(label="نشر انمي", value="انمي" emoji="⛩️")
     ])
-    async def sel(self, interaction, select):
-        if interaction.user.id == OWNER_ID or interaction.user.guild_permissions.manage_messages:
-            await interaction.response.send_modal(PostModal(select.values[0]))
-        else: await interaction.response.send_message("ما عندك صلاحية", ephemeral=True)
+    async def post_select(self, interaction, select):
+        await interaction.response.send_modal(PostModal(select.values[0]))
 
-    @discord.ui.button(label="قفل", style=discord.ButtonStyle.danger, custom_id="d_lock")
-    async def l(self, interaction, button):
-        if interaction.user.guild_permissions.manage_channels:
-            await interaction.channel.set_permissions(interaction.guild.default_role, send_messages=False)
-            await interaction.response.send_message("قفلنا القناة", ephemeral=True)
+    # 2. قائمة الإشراف العام
+    @discord.ui.select(placeholder="🛠️ أدوات الإشراف والتحكم", custom_id="m_mod", options=[
+        discord.SelectOption(label="قفل القناة", value="lock" emoji="🔒"),
+        discord.SelectOption(label="فتح القناة", value="unlock" emoji="🔓"),
+        discord.SelectOption(label="إخفاء القناة", value="hide" emoji="👻"),
+        discord.SelectOption(label="إظهار القناة", value="show" emoji="👀"),
+        discord.SelectOption(label="قفل السيرفر كامل", value="lock_all" emoji="🚨")
+    ])
+    async def mod_select(self, interaction, select):
+        if not interaction.user.guild_permissions.manage_channels: return
+        val = select.values[0]
+        role = interaction.guild.default_role
+        if val == "lock": await interaction.channel.set_permissions(role, send_messages=False)
+        if val == "unlock": await interaction.channel.set_permissions(role, send_messages=True)
+        if val == "hide": await interaction.channel.set_permissions(role, view_channel=False)
+        if val == "show": await interaction.channel.set_permissions(role, view_channel=True)
+        await interaction.response.send_message(f"تم تنفيذ الأمر: {val}" ephemeral=True)
 
-    @discord.ui.button(label="فتح", style=discord.ButtonStyle.success, custom_id="d_unlock")
-    async def u(self, interaction, button):
-        if interaction.user.guild_permissions.manage_channels:
-            await interaction.channel.set_permissions(interaction.guild.default_role, send_messages=True)
-            await interaction.response.send_message("فتحنا القناة", ephemeral=True)
+    # 3. قائمة الاختصارات السريعة
+    @discord.ui.select(placeholder="⚡ اختصارات سريعة", custom_id="m_quick", options=[
+        discord.SelectOption(label="تحديث الإحصائيات فوراً", value="stats" emoji="📊"),
+        discord.SelectOption(label="مسح 100 رسالة", value="purge" emoji="🧹"),
+        discord.SelectOption(label="معلومات السيرفر", value="info" emoji="💎")
+    ])
+    async def quick_select(self, interaction, select):
+        val = select.values[0]
+        if val == "stats":
+            await bot.auto_refresh_task()
+            await interaction.response.send_message("تم تحديث الرومات" ephemeral=True)
+        if val == "purge":
+            await interaction.channel.purge(limit=100)
+            await interaction.response.send_message("تم التنظيف" ephemeral=True)
+        if val == "info":
+            emb = discord.Embed(title=interaction.guild.name, description=f"الأعضاء: {interaction.guild.member_count}" color=0x2b2d31)
+            await interaction.response.send_message(embed=emb, ephemeral=True)
 
 class MyBot(commands.Bot):
     def __init__(self): super().__init__(command_prefix="!", intents=discord.Intents.all())
     async def setup_hook(self):
-        self.add_view(MasterDashboard())
-        self.add_view(CloudDownloadView())
+        self.add_view(PhoenixMegaDashboard())
         await self.tree.sync()
         if not self.auto_refresh_task.is_running(): self.auto_refresh_task.start()
 
+    # --- (3) الترحيب الذكي - لم يتم لمسه ---
     async def on_member_join(self, member):
         chan = self.get_channel(WELCOME_ROOM_ID)
         if chan:
@@ -131,6 +129,7 @@ class MyBot(commands.Bot):
                 await chan.send(content=txt, file=discord.File(fp=bg.image_bytes, filename="w.png"))
             except: await chan.send(content=txt)
 
+    # --- (4) إحصائيات السيرفر - لم يتم لمسه ---
     @tasks.loop(minutes=30)
     async def auto_refresh_task(self):
         for guild in self.guilds:
@@ -145,37 +144,13 @@ class MyBot(commands.Bot):
 
 bot = MyBot()
 
-# --- أوامرك كما هي بالضبط ---
-@bot.tree.command(name="setav")
-async def setav(interaction):
+@bot.tree.command(name="setup_dashboard" description="إرسال لوحة التحكم العملاقة")
+async def setup(interaction):
     if interaction.user.id == OWNER_ID:
-        emb = discord.Embed(title="Phoenix Dashboard", description="تحكم كامل بالسيرفر", color=0x2b2d31)
-        await interaction.channel.send(embed=emb, view=MasterDashboard())
-        await interaction.response.send_message("تم", ephemeral=True)
-
-@bot.tree.command(name="مسح")
-@app_commands.checks.has_permissions(manage_messages=True)
-async def clear(interaction, العدد: int):
-    await interaction.channel.purge(limit=العدد)
-    await interaction.response.send_message(f"مسحت {العدد}", ephemeral=True)
-
-@bot.tree.command(name="قفل_القناة")
-@app_commands.checks.has_permissions(manage_channels=True)
-async def lock(interaction):
-    await interaction.channel.set_permissions(interaction.guild.default_role, send_messages=False)
-    await interaction.response.send_message("قُفلت")
-
-@bot.tree.command(name="فتح_القناة")
-@app_commands.checks.has_permissions(manage_channels=True)
-async def unlock(interaction):
-    await interaction.channel.set_permissions(interaction.guild.default_role, send_messages=True)
-    await interaction.response.send_message("فُتحت")
-
-@bot.tree.command(name="الحالة")
-async def status(interaction, النص: str):
-    if interaction.user.id == OWNER_ID:
-        await bot.change_presence(activity=discord.Game(name=النص))
-        await interaction.response.send_message("تحدثت الحالة", ephemeral=True)
+        embed = discord.Embed(title="PHOENIX SYSTEM" description="لوحة التحكم الكاملة بالسيرفر" color=0x2b2d31)
+        embed.set_image(url=DASHBOARD_IMAGE_URL)
+        await interaction.channel.send(embed=embed, view=PhoenixMegaDashboard())
+        await interaction.response.send_message("تم التشغيل" ephemeral=True)
 
 if __name__ == '__main__':
     keep_alive()
