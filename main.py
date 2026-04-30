@@ -1,4 +1,4 @@
-import asyncio, os, discord, datetime
+import asyncio, os, discord, datetime, io
 from discord.ext import commands, tasks
 from discord import app_commands
 from flask import Flask
@@ -36,7 +36,6 @@ class MyBot(commands.Bot):
         if not self.auto_refresh_task.is_running():
             self.auto_refresh_task.start()
 
-    # أمر الترحيب التلقائي
     async def on_member_join(self, member):
         channel = self.get_channel(WELCOME_ROOM_ID)
         if channel:
@@ -55,7 +54,6 @@ class MyBot(commands.Bot):
                 print(f"Error drawing image: {e}")
                 await channel.send(welcome_text)
 
-    # تحديث إحصائيات السيرفر
     @tasks.loop(minutes=30)
     async def auto_refresh_task(self):
         for guild in self.guilds:
@@ -72,52 +70,49 @@ class MyBot(commands.Bot):
             await guild.create_voice_channel(name=f"Members: {total}", category=category)
             await guild.create_voice_channel(name=f"Online: {online}", category=category)
 
-    # ميزة التقاط الصور التلقائية المحدثة (محصورة في قنوات معينة)
+    # نظام النشر التلقائي المطور جداً لتفادي أخطاء القراءة
     async def on_message(self, message):
         if message.author.bot: return
         
-        # التأكد أن الرسالة في القنوات المسموحة
         if message.channel.id in ALLOWED_CHANNELS:
-            # التأكد من وجود صورتين وصلاحيات الشخص
             if len(message.attachments) == 2 and (message.author.id == OWNER_ID or message.author.guild_permissions.manage_messages):
                 if all(message.attachments[i].content_type.startswith('image') for i in range(2)):
-                    msg = await message.channel.send("⏳ جاري سحب ومعالجة الصور...")
+                    msg = await message.channel.send("⏳ جاري سحب الصور بدقة...")
                     try:
-                        await asyncio.sleep(1) # انتظار بسيط لمعالجة الروابط
-                        
-                        avatar_url = message.attachments[0].url
-                        banner_url = message.attachments[1].url
+                        # جلب محتوى الصور كـ Bytes لضمان عدم تلف الملف أثناء القراءة
+                        av_bytes = io.BytesIO(await message.attachments[0].read())
+                        bn_bytes = io.BytesIO(await message.attachments[1].read())
 
                         canvas = Editor(Canvas(size=(3188, 2160), color="#000000")) 
                         
-                        # البنر
-                        bn_img = await load_image_async(banner_url)
+                        # البنر (تحميل من Bytes)
+                        bn_img = await load_image_async(bn_bytes)
                         bn_res = Editor(bn_img).resize((3188, 1100))
                         canvas.paste(bn_res, (0, 0))
                         
-                        # الأفاتار
-                        av_img = await load_image_async(avatar_url)
+                        # الأفاتار (تحميل من Bytes)
+                        av_img = await load_image_async(av_bytes)
                         av_res = Editor(av_img).resize((900, 900)).circle_image()
                         canvas.paste(av_res, (100, 550))
                         
-                        # التيمبلت المفرغ
+                        # التيمبلت
                         base = Editor("template.png") 
                         canvas.paste(base, (0, 0))
                         
                         file = discord.File(fp=canvas.image_bytes, filename="profile.png")
                         
-                        await message.delete() # حذف صورك الأصلية
-                        await msg.delete() # حذف رسالة الانتظار
+                        await message.delete() 
+                        await msg.delete() 
                         
-                        await message.channel.send(file=file, view=CloudDownloadView(avatar_url, banner_url))
+                        await message.channel.send(file=file, view=CloudDownloadView(message.attachments[0].url, message.attachments[1].url))
                     except Exception as e:
-                        await msg.edit(content=f"❌ خطأ: `{e}`")
+                        await msg.edit(content=f"❌ عذراً، لم أستطع قراءة هذه الصور. تأكد أنها بصيغة PNG أو JPG عادية.\n`{e}`")
 
         await self.process_commands(message)
 
 bot = MyBot()
 
-# الأوامر الإدارية
+# --- بقية الأوامر كما هي دون أي تغيير ---
 
 @bot.tree.command(name="مسح", description="مسح الرسائل")
 @app_commands.checks.has_permissions(manage_messages=True)
