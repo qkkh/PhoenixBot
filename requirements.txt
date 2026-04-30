@@ -1,4 +1,5 @@
 discord.py
 flask
+Pillow==10.4.0
 easy-pil
 requests
