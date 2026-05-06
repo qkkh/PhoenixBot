@@ -8,23 +8,19 @@ from PIL import Image
 
 app = Flask('')
 @app.route('/')
-def home(): return "Phoenix ID Controller Active"
+def home(): return "Phoenix Admin System Active"
 def run(): app.run(host='0.0.0.0', port=8080)
 def keep_alive():
     t = Thread(target=run)
     t.daemon = True
     t.start()
 
+# --- الإعدادات ---
 WELCOME_ROOM_ID = 1347630031337160764
 CATEGORY_ID = 1497599277793284248 
 OWNER_ID = 1341796578742243338
-DASHBOARD_IMAGE_URL = "https://p16-capcut-va.ibyteimg.com/tos-alisg-v-643501-sg/o0fIAfD7fEge8beAA7fInQAEn9EIzlDAnfC2f6~tplv-nh76y3g2ee-f5.webp"
-
-ARCHIVE_CHANNELS = {
-    "شباب": 1378251863098392596,
-    "بنات": 1378251900348141589,
-    "انمي": 1378251920237395998
-}
+LOGS_ROOM_ID = 1347630031337160764 
+ARCHIVE_ROOMS = [1378251863098392596, 1378251900348141589, 1378251920237395998]
 
 async def download_image(url):
     headers = {'User-Agent': 'Mozilla/5.0'}
@@ -35,100 +31,42 @@ async def download_image(url):
         except: return None
     return None
 
-class ChannelControlModal(discord.ui.Modal):
-    def __init__(self, action):
-        super().__init__(title="التحكم بروم مخصص")
-        self.action = action
-    
-    channel_id = discord.ui.TextInput(
-        label="أدخل ID الروم هنا",
-        placeholder="مثال 123456789012345678",
-        required=True,
-        min_length=15
-    )
-
-    async def on_submit(self, interaction: discord.Interaction):
-        try:
-            target_channel = interaction.guild.get_channel(int(self.channel_id.value))
-            if not target_channel:
-                return await interaction.response.send_message("لم أتمكن من العثور على هذا الروم", ephemeral=True)
-            
-            role = interaction.guild.default_role
-            if self.action == "lock":
-                await target_channel.set_permissions(role, send_messages=False)
-                msg = f"تم قفل الروم {target_channel.name} بنجاح"
-            elif self.action == "unlock":
-                await target_channel.set_permissions(role, send_messages=True)
-                msg = f"تم فتح الروم {target_channel.name} بنجاح"
-            elif self.action == "hide":
-                await target_channel.set_permissions(role, view_channel=False)
-                msg = f"تم إخفاء الروم {target_channel.name} بنجاح"
-            elif self.action == "show":
-                await target_channel.set_permissions(role, view_channel=True)
-                msg = f"تم إظهار الروم {target_channel.name} بنجاح"
-            
-            await interaction.response.send_message(msg, ephemeral=True)
-        except ValueError:
-            await interaction.response.send_message("يرجى إدخال أرقام فقط", ephemeral=True)
-
-class PostModal(discord.ui.Modal):
-    def __init__(self, cat):
-        super().__init__(title=f"نشر في {cat}")
-        self.cat = cat
-    av = discord.ui.TextInput(label="رابط الأفتار", required=True)
-    bn = discord.ui.TextInput(label="رابط البنر", required=True)
-
-    async def on_submit(self, interaction):
-        await interaction.response.defer(ephemeral=True)
-        av_d, bn_d = await download_image(self.av.value), await download_image(self.bn.value)
-        chan = interaction.guild.get_channel(ARCHIVE_CHANNELS.get(self.cat))
-        canvas = Editor(Canvas(size=(3188, 2160), color="#000000"))
-        canvas.paste(Editor(Image.open(io.BytesIO(bn_d))).resize((3188, 1100)), (0, 0))
-        canvas.paste(Editor(Image.open(io.BytesIO(av_d))).resize((900, 900)).circle_image(), (100, 550))
-        if os.path.exists("template.png"): canvas.paste(Editor("template.png"), (0, 0))
-        img_bin = io.BytesIO()
-        canvas.image.save(img_bin, "PNG")
-        img_bin.seek(0)
-        await chan.send(file=discord.File(fp=img_bin, filename="p.png"))
-        await interaction.followup.send("تم الأرشفة بنجاح", ephemeral=True)
-
-class PhoenixUltraDashboard(discord.ui.View):
-    def __init__(self): super().__init__(timeout=None)
-
-    @discord.ui.select(placeholder="نشر وأرشفة", custom_id="u_post", options=[
-        discord.SelectOption(label="أرشيف الشباب", value="شباب", emoji="👦"),
-        discord.SelectOption(label="أرشيف البنات", value="بنات", emoji="👧"),
-        discord.SelectOption(label="أرشيف الانمي", value="انمي", emoji="⛩️")
-    ])
-    async def post_select(self, interaction, select):
-        await interaction.response.send_modal(PostModal(select.values[0]))
-
-    @discord.ui.select(placeholder="تحكم بروم معين عبر الـ ID", custom_id="id_control", options=[
-        discord.SelectOption(label="قفل روم بالـ ID", value="lock", emoji="🔒"),
-        discord.SelectOption(label="فتح روم بالـ ID", value="unlock", emoji="🔓"),
-        discord.SelectOption(label="إخفاء روم بالـ ID", value="hide", emoji="👻"),
-        discord.SelectOption(label="إظهار روم بالـ ID", value="show", emoji="👀")
-    ])
-    async def id_manage(self, interaction, select):
-        if not interaction.user.guild_permissions.manage_channels: return
-        await interaction.response.send_modal(ChannelControlModal(select.values[0]))
-
-    @discord.ui.button(label="تحديث الإحصائيات", style=discord.ButtonStyle.blurple, emoji="📊", custom_id="u_stats")
-    async def refresh_stats(self, interaction, button):
-        await bot.auto_refresh_task()
-        await interaction.response.send_message("تم تحديث إحصائيات السيرفر", ephemeral=True)
+async def send_log(guild, title, description, color=0xff0000):
+    log_chan = guild.get_channel(LOGS_ROOM_ID)
+    if log_chan:
+        embed = discord.Embed(title=title, description=description, color=color, timestamp=datetime.datetime.now())
+        await log_chan.send(embed=embed)
 
 class MyBot(commands.Bot):
     def __init__(self): super().__init__(command_prefix="!", intents=discord.Intents.all())
+    
     async def setup_hook(self):
-        self.add_view(PhoenixUltraDashboard())
         await self.tree.sync()
         if not self.auto_refresh_task.is_running(): self.auto_refresh_task.start()
 
+    # --- نظام الأرشفة التلقائي ---
+    async def on_message(self, message):
+        if message.author.bot: return
+        if message.channel.id in ARCHIVE_ROOMS and message.attachments:
+            if len(message.attachments) >= 2:
+                await message.delete()
+                av_url = message.attachments[0].url
+                bn_url = message.attachments[1].url
+                av_d, bn_d = await download_image(av_url), await download_image(bn_url)
+                if av_d and bn_d:
+                    canvas = Editor(Canvas(size=(3188, 2160), color="#000000"))
+                    canvas.paste(Editor(Image.open(io.BytesIO(bn_d))).resize((3188, 1100)), (0, 0))
+                    canvas.paste(Editor(Image.open(io.BytesIO(av_d))).resize((900, 900)).circle_image(), (100, 550))
+                    if os.path.exists("template.png"): canvas.paste(Editor("template.png"), (0, 0))
+                    file = discord.File(fp=canvas.image_bytes, filename="archive.png")
+                    await message.channel.send(file=file)
+        await self.process_commands(message)
+
+    # --- الترحيب بالرسالة الجديدة ---
     async def on_member_join(self, member):
         chan = self.get_channel(WELCOME_ROOM_ID)
         if chan:
-            txt = f"Have fun in PhoenixRising User {member.mention}"
+            txt = f"_'Have fun in **__PhoenixRising__**_\n     _'User: {member.mention}_<a:Via1:1378238620418183188>"
             try:
                 bg = Editor("welcome.png")
                 av_b = await download_image(str(member.display_avatar.url))
@@ -138,6 +76,7 @@ class MyBot(commands.Bot):
                 await chan.send(content=txt, file=discord.File(fp=bg.image_bytes, filename="w.png"))
             except: await chan.send(content=txt)
 
+    # --- الإحصائيات التلقائية ---
     @tasks.loop(minutes=30)
     async def auto_refresh_task(self):
         for guild in self.guilds:
@@ -152,13 +91,132 @@ class MyBot(commands.Bot):
 
 bot = MyBot()
 
-@bot.tree.command(name="dashboard", description="لوحة التحكم")
-async def setup(interaction):
-    if interaction.user.id == OWNER_ID:
-        embed = discord.Embed(title="PHOENIX CONTROL", description="أدخل ID الروم للتحكم", color=0x00aaff)
-        embed.set_image(url=DASHBOARD_IMAGE_URL)
-        await interaction.channel.send(embed=embed, view=PhoenixUltraDashboard())
-        await interaction.response.send_message("تم التشغيل", ephemeral=True)
+# --- 20 أمر إداري مخصص ---
+
+@bot.tree.command(name="ban", description="طرد عضو نهائياً")
+@app_commands.checks.has_permissions(ban_members=True)
+async def ban(interaction: discord.Interaction, user: discord.Member, reason: str = "لا يوجد"):
+    await user.ban(reason=reason)
+    await interaction.response.send_message(f"تم طرد {user.name} بنجاح", ephemeral=True)
+    await send_log(interaction.guild, "Ban", f"User: {user.mention}\nAdmin: {interaction.user.mention}")
+
+@bot.tree.command(name="kick", description="طرد عضو من السيرفر")
+@app_commands.checks.has_permissions(kick_members=True)
+async def kick(interaction: discord.Interaction, user: discord.Member, reason: str = "لا يوجد"):
+    await user.kick(reason=reason)
+    await interaction.response.send_message(f"تم طرد {user.name}", ephemeral=True)
+
+@bot.tree.command(name="clear", description="مسح الرسائل")
+@app_commands.checks.has_permissions(manage_messages=True)
+async def clear(interaction: discord.Interaction, amount: int):
+    await interaction.channel.purge(limit=amount)
+    await interaction.response.send_message(f"تم مسح {amount} رسالة", ephemeral=True)
+
+@bot.tree.command(name="mute", description="إسكات عضو")
+@app_commands.checks.has_permissions(moderate_members=True)
+async def mute(interaction: discord.Interaction, user: discord.Member, time: int):
+    duration = datetime.timedelta(minutes=time)
+    await user.timeout(duration)
+    await interaction.response.send_message(f"تم إسكات {user.name} لمدة {time} دقيقة", ephemeral=True)
+
+@bot.tree.command(name="unmute", description="فك الإسكات")
+@app_commands.checks.has_permissions(moderate_members=True)
+async def unmute(interaction: discord.Interaction, user: discord.Member):
+    await user.timeout(None)
+    await interaction.response.send_message(f"تم فك الإسكات عن {user.name}", ephemeral=True)
+
+@bot.tree.command(name="lock", description="قفل الروم الحالي")
+@app_commands.checks.has_permissions(manage_channels=True)
+async def lock(interaction: discord.Interaction):
+    await interaction.channel.set_permissions(interaction.guild.default_role, send_messages=False)
+    await interaction.response.send_message("تم قفل الروم", ephemeral=False)
+
+@bot.tree.command(name="unlock", description="فتح الروم الحالي")
+@app_commands.checks.has_permissions(manage_channels=True)
+async def unlock(interaction: discord.Interaction):
+    await interaction.channel.set_permissions(interaction.guild.default_role, send_messages=True)
+    await interaction.response.send_message("تم فتح الروم", ephemeral=False)
+
+@bot.tree.command(name="hide", description="إخفاء الروم")
+@app_commands.checks.has_permissions(manage_channels=True)
+async def hide(interaction: discord.Interaction):
+    await interaction.channel.set_permissions(interaction.guild.default_role, view_channel=False)
+    await interaction.response.send_message("تم إخفاء الروم", ephemeral=True)
+
+@bot.tree.command(name="show", description="إظهار الروم")
+@app_commands.checks.has_permissions(manage_channels=True)
+async def show(interaction: discord.Interaction):
+    await interaction.channel.set_permissions(interaction.guild.default_role, view_channel=True)
+    await interaction.response.send_message("تم إظهار الروم", ephemeral=True)
+
+@bot.tree.command(name="slowmode", description="وضع وضع البطء")
+@app_commands.checks.has_permissions(manage_channels=True)
+async def slowmode(interaction: discord.Interaction, seconds: int):
+    await interaction.channel.edit(slowmode_delay=seconds)
+    await interaction.response.send_message(f"تم تفعيل وضع البطء {seconds} ثانية", ephemeral=True)
+
+@bot.tree.command(name="nick", description="تغيير لقب عضو")
+@app_commands.checks.has_permissions(manage_nicknames=True)
+async def nick(interaction: discord.Interaction, user: discord.Member, name: str):
+    await user.edit(nick=name)
+    await interaction.response.send_message(f"تم تغيير لقب {user.name}", ephemeral=True)
+
+@bot.tree.command(name="warn", description="تحذير عضو")
+@app_commands.checks.has_permissions(manage_messages=True)
+async def warn(interaction: discord.Interaction, user: discord.Member, reason: str):
+    await interaction.response.send_message(f"تم تحذير {user.mention} بسبب {reason}")
+    await send_log(interaction.guild, "تحذير", f"العضو: {user.mention}\nالسبب: {reason}")
+
+@bot.tree.command(name="role_add", description="إعطاء رتبة")
+@app_commands.checks.has_permissions(manage_roles=True)
+async def role_add(interaction: discord.Interaction, user: discord.Member, role: discord.Role):
+    await user.add_roles(role)
+    await interaction.response.send_message(f"تم إعطاء رتبة {role.name} لـ {user.name}", ephemeral=True)
+
+@bot.tree.command(name="role_remove", description="سحب رتبة")
+@app_commands.checks.has_permissions(manage_roles=True)
+async def role_remove(interaction: discord.Interaction, user: discord.Member, role: discord.Role):
+    await user.remove_roles(role)
+    await interaction.response.send_message(f"تم سحب رتبة {role.name} من {user.name}", ephemeral=True)
+
+@bot.tree.command(name="id_lock", description="قفل روم معين بالـ ID")
+@app_commands.checks.has_permissions(manage_channels=True)
+async def id_lock(interaction: discord.Interaction, channel_id: str):
+    chan = interaction.guild.get_channel(int(channel_id))
+    await chan.set_permissions(interaction.guild.default_role, send_messages=False)
+    await interaction.response.send_message(f"تم قفل الروم {chan.name}", ephemeral=True)
+
+@bot.tree.command(name="id_unlock", description="فتح روم معين بالـ ID")
+@app_commands.checks.has_permissions(manage_channels=True)
+async def id_unlock(interaction: discord.Interaction, channel_id: str):
+    chan = interaction.guild.get_channel(int(channel_id))
+    await chan.set_permissions(interaction.guild.default_role, send_messages=True)
+    await interaction.response.send_message(f"تم فتح الروم {chan.name}", ephemeral=True)
+
+@bot.tree.command(name="set_name", description="تغيير اسم الروم")
+@app_commands.checks.has_permissions(manage_channels=True)
+async def set_name(interaction: discord.Interaction, name: str):
+    await interaction.channel.edit(name=name)
+    await interaction.response.send_message(f"تم تغيير اسم الروم إلى {name}", ephemeral=True)
+
+@bot.tree.command(name="user_info", description="معلومات العضو")
+async def user_info(interaction: discord.Interaction, user: discord.Member):
+    embed = discord.Embed(title=f"معلومات {user.name}", color=0x00aaff)
+    embed.add_field(name="ID", value=user.id)
+    embed.add_field(name="انضم في", value=user.joined_at.strftime("%Y-%m-%d"))
+    await interaction.response.send_message(embed=embed)
+
+@bot.tree.command(name="server_info", description="معلومات السيرفر")
+async def server_info(interaction: discord.Interaction):
+    guild = interaction.guild
+    embed = discord.Embed(title=f"سيرفر {guild.name}", color=0x00aaff)
+    embed.add_field(name="الأعضاء", value=guild.member_count)
+    embed.add_field(name="الرومات", value=len(guild.channels))
+    await interaction.response.send_message(embed=embed)
+
+@bot.tree.command(name="ping", description="فحص سرعة البوت")
+async def ping(interaction: discord.Interaction):
+    await interaction.response.send_message(f"سرعة الاستجابة {round(bot.latency * 1000)}ms")
 
 if __name__ == '__main__':
     keep_alive()
